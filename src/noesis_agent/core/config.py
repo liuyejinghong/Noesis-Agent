@@ -130,9 +130,16 @@ class OptimizeConfig(BaseModel):
 class AgentRoleConfig(BaseModel):
     model: str = "openai:gpt-4o"
     fallback: str | None = None
+    base_url: str | None = None
+    api_key_env: str | None = None
     system_prompt: str = ""
     tools: list[str] = Field(default_factory=list)
     output_format: str = "text"
+
+    def resolve_api_key(self) -> str | None:
+        if self.api_key_env is None:
+            return None
+        return os.environ.get(self.api_key_env)
 
 
 class StrategyConfig(BaseModel):

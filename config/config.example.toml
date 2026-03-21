@@ -35,3 +35,10 @@ model = "openai:gpt-4o"
 system_prompt = "Review proposals for risk, execution constraints, and evidence quality."
 tools = ["portfolio_state", "risk_report"]
 output_format = "json"
+
+# [agent_roles.analyst]
+# model = "claude-sonnet-4-6"
+# base_url = "https://your-relay.example.com/v1"
+# api_key_env = "YOUR_RELAY_API_KEY"
+# system_prompt = ""
+# output_format = "structured"

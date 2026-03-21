@@ -8,6 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from noesis_agent.core.config import (
+    AgentRoleConfig,
     ExchangeConfig,
     NoesisSettings,
     RiskConfig,
@@ -109,6 +110,32 @@ class TestExchangeConfig:
         config = ExchangeConfig(api_secret_env="BINANCE_API_SECRET")  # noqa: S106
 
         assert config.resolve_api_secret() is None
+
+
+class TestAgentRoleConfig:
+    def test_accepts_relay_fields(self) -> None:
+        config = AgentRoleConfig(
+            model="claude-sonnet-4-6",
+            base_url="https://api.example.com/v1",
+            api_key_env="RELAY_API_KEY",
+            output_format="structured",
+        )
+
+        assert config.model == "claude-sonnet-4-6"
+        assert config.base_url == "https://api.example.com/v1"
+        assert config.api_key_env == "RELAY_API_KEY"
+        assert config.output_format == "structured"
+
+    def test_resolve_api_key_reads_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("RELAY_API_KEY", "relay-secret")
+        config = AgentRoleConfig(api_key_env="RELAY_API_KEY")
+
+        assert config.resolve_api_key() == "relay-secret"
+
+    def test_resolve_api_key_returns_none_without_env_name(self) -> None:
+        config = AgentRoleConfig()
+
+        assert config.resolve_api_key() is None
 
 
 class TestRiskConfig:

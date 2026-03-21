@@ -1,0 +1,45 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from typer.testing import CliRunner
+
+from noesis_agent.cli import app
+
+runner = CliRunner()
+
+
+class TestCLIBasics:
+    def test_help(self) -> None:
+        result = runner.invoke(app, ["--help"])
+
+        assert result.exit_code == 0
+        assert "Noesis Agent" in result.output
+
+    def test_status(self, tmp_path: Path) -> None:
+        result = runner.invoke(app, ["status", "--root-dir", str(tmp_path)])
+
+        assert result.exit_code == 0
+        assert "系统状态" in result.output
+
+    def test_config_show(self, tmp_path: Path) -> None:
+        result = runner.invoke(app, ["config", "show", "--root-dir", str(tmp_path)])
+
+        assert result.exit_code == 0
+        assert "当前配置" in result.output
+
+    def test_proposals_empty(self, tmp_path: Path) -> None:
+        result = runner.invoke(app, ["proposals", "--root-dir", str(tmp_path)])
+
+        assert result.exit_code == 0
+        assert "暂无提案" in result.output
+
+    def test_approve_nonexistent(self, tmp_path: Path) -> None:
+        result = runner.invoke(app, ["approve", "999", "--root-dir", str(tmp_path)])
+
+        assert result.exit_code == 1
+
+    def test_reject_nonexistent(self, tmp_path: Path) -> None:
+        result = runner.invoke(app, ["reject", "999", "--reason", "测试", "--root-dir", str(tmp_path)])
+
+        assert result.exit_code == 1

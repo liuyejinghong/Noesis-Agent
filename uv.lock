@@ -1957,6 +1957,7 @@ dependencies = [
     { name = "pydantic-ai" },
     { name = "pydantic-settings" },
     { name = "ta-lib" },
+    { name = "typer" },
     { name = "uvicorn" },
 ]
 
@@ -1984,6 +1985,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9" },
     { name = "ta-lib", specifier = ">=0.6" },
+    { name = "typer", extras = ["all"], specifier = ">=0.15" },
     { name = "uvicorn", specifier = ">=0.34" },
 ]
 provides-extras = ["optimize", "dev"]

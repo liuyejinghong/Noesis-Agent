@@ -5,6 +5,7 @@ from pydantic_ai.models.test import TestModel
 
 from noesis_agent.agent.memory.store import MemoryStore
 from noesis_agent.agent.models import ModelRouter
+from noesis_agent.agent.roles.proposer import ProposerDeps
 from noesis_agent.agent.roles.types import Proposal, ProposalStatus
 from noesis_agent.agent.skills.registry import SkillRegistry
 from noesis_agent.core.config import AgentRoleConfig
@@ -14,9 +15,7 @@ def make_router() -> ModelRouter:
     return ModelRouter({"proposer": AgentRoleConfig(model="test")})
 
 
-def make_deps() -> object:
-    from noesis_agent.agent.roles.proposer import ProposerDeps
-
+def make_deps() -> ProposerDeps:
     return ProposerDeps(memory_store=MemoryStore(":memory:"), skill_registry=SkillRegistry())
 
 

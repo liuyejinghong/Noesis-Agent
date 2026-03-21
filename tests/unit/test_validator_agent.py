@@ -5,8 +5,8 @@ from pydantic_ai.models.test import TestModel
 
 from noesis_agent.agent.memory.store import MemoryStore
 from noesis_agent.agent.models import ModelRouter
-from noesis_agent.agent.roles.validator import ValidatorDeps
 from noesis_agent.agent.roles.types import ValidationReport
+from noesis_agent.agent.roles.validator import ValidatorDeps
 from noesis_agent.agent.skills.registry import SkillRegistry
 from noesis_agent.core.config import AgentRoleConfig
 

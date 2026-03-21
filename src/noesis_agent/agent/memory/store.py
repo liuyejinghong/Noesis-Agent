@@ -88,6 +88,27 @@ class MemoryStore:
     def store_failure(self, failure: FailureRecord) -> int:
         return self.store(failure)
 
+    def get_record(self, record_id: int) -> MemoryRecord | None:
+        row = self._connection.execute(
+            "SELECT * FROM memory_records WHERE id = ?",
+            (record_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return _row_to_record(row)
+
+    def update_record(self, record_id: int, *, content: str, metadata: dict[str, Any], status: str) -> None:
+        stamp = _utc_now()
+        _ = self._connection.execute(
+            """
+            UPDATE memory_records
+            SET content = ?, metadata_json = ?, status = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (content, json.dumps(metadata), status, stamp, record_id),
+        )
+        self._connection.commit()
+
     def query_failures(
         self,
         *,

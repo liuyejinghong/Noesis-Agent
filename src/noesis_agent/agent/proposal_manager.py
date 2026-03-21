@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from noesis_agent.agent.memory.models import FailureRecord, MemoryRecord
 from noesis_agent.agent.memory.store import MemoryStore
@@ -32,6 +31,10 @@ class ProposalManager:
     def __init__(self, memory: MemoryStore):
         self._memory = memory
 
+    @property
+    def memory(self) -> MemoryStore:
+        return self._memory
+
     def create_proposal(self, proposal: Proposal) -> int:
         record = MemoryRecord(
             memory_type="knowledge",
@@ -47,14 +50,16 @@ class ProposalManager:
 
     def advance_proposal(self, proposal_id: int, new_status: ProposalStatus, *, reason: str = "") -> None:
         record = self.get_proposal(proposal_id)
-        proposal = _load_proposal_record(record, proposal_id)
+        if record is None:
+            raise ValueError(f"Proposal not found: {proposal_id}")
+        proposal = Proposal.model_validate(record.metadata)
         current_status = proposal.status
 
         if new_status not in VALID_TRANSITIONS.get(current_status, []):
             raise ValueError(f"Invalid proposal transition: {current_status.value} -> {new_status.value}")
 
         updated_proposal = proposal.model_copy(update={"status": new_status})
-        transition_history = list(record.metadata.get("transition_history", []))
+        transition_history = cast(list[dict[str, str]], record.metadata.get("transition_history", []))
         transition_history.append(
             {
                 "from_status": current_status.value,
@@ -69,7 +74,9 @@ class ProposalManager:
 
     def reject_proposal(self, proposal_id: int, *, reason: str, record_failure: bool = True) -> None:
         record = self.get_proposal(proposal_id)
-        proposal = _load_proposal_record(record, proposal_id)
+        if record is None:
+            raise ValueError(f"Proposal not found: {proposal_id}")
+        proposal = Proposal.model_validate(record.metadata)
         previous_status = proposal.status
 
         self.advance_proposal(proposal_id, ProposalStatus.REJECTED, reason=reason)
@@ -93,47 +100,18 @@ class ProposalManager:
         return self._memory.get_proposals(status=ProposalStatus.PENDING_APPROVAL.value)
 
     def get_proposal(self, proposal_id: int) -> MemoryRecord | None:
-        row = self._memory._connection.execute(  # noqa: SLF001
-            """
-            SELECT *
-            FROM memory_records
-            WHERE id = ? AND category = 'proposal' AND memory_type != 'failure'
-            """,
-            (proposal_id,),
-        ).fetchone()
-        if row is None:
+        record = self._memory.get_record(proposal_id)
+        if record is None or record.category != "proposal" or record.memory_type == "failure":
             return None
-        return MemoryRecord(
-            id=row["id"],
-            memory_type=row["memory_type"],
-            category=row["category"],
-            strategy_id=row["strategy_id"],
-            title=row["title"],
-            content=row["content"],
-            tags=[tag for tag in row["tags"].split(",") if tag],
-            metadata=json.loads(row["metadata_json"]),
-            status=row["status"],
-            created_at=row["created_at"],
-            updated_at=row["updated_at"],
-        )
+        return record
 
     def _update_proposal_record(self, proposal_id: int, proposal: Proposal, metadata: dict[str, Any]) -> None:
-        stamp = _utc_now()
-        self._memory._connection.execute(  # noqa: SLF001
-            """
-            UPDATE memory_records
-            SET content = ?, metadata_json = ?, status = ?, updated_at = ?
-            WHERE id = ? AND category = 'proposal' AND memory_type != 'failure'
-            """,
-            (proposal.model_dump_json(), json.dumps(metadata), proposal.status.value, stamp, proposal_id),
+        self._memory.update_record(
+            proposal_id,
+            content=proposal.model_dump_json(),
+            metadata=metadata,
+            status=proposal.status.value,
         )
-        self._memory._connection.commit()  # noqa: SLF001
-
-
-def _load_proposal_record(record: MemoryRecord | None, proposal_id: int) -> Proposal:
-    if record is None:
-        raise ValueError(f"Proposal not found: {proposal_id}")
-    return Proposal.model_validate(record.metadata)
 
 
 def _serialize_proposal(proposal: Proposal) -> dict[str, Any]:

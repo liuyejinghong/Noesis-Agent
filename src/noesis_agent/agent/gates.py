@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from typing import Any
+
 from noesis_agent.agent.roles.types import BacktestComparison, GateResult
 
 
-def gate_1_failure_memory(*, strategy_id: str, change_type: str, failure_records: list[dict]) -> GateResult:
+def gate_1_failure_memory(*, strategy_id: str, change_type: str, failure_records: list[dict[str, Any]]) -> GateResult:
     for record in failure_records:
         if record.get("strategy_id") == strategy_id and record.get("category") == change_type:
             return GateResult(

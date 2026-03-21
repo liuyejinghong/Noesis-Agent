@@ -62,7 +62,7 @@ def test_reject_proposal_stores_failure_record() -> None:
     manager.reject_proposal(proposal_id, reason="Validation sample size too small.")
 
     record = manager.get_proposal(proposal_id)
-    failures = manager._memory.query_failures(
+    failures = manager.memory.query_failures(
         strategy_id=proposal.strategy_id,
         category=proposal.change_type,
     )

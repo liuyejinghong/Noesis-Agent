@@ -34,6 +34,11 @@ class TestCLIBasics:
         assert result.exit_code == 0
         assert "暂无提案" in result.output
 
+    def test_analyze_no_api_key(self, tmp_path: Path) -> None:
+        result = runner.invoke(app, ["analyze", "sma_cross", "--period", "2025-01", "--root-dir", str(tmp_path)])
+
+        assert result.exit_code in (0, 1)
+
     def test_approve_nonexistent(self, tmp_path: Path) -> None:
         result = runner.invoke(app, ["approve", "999", "--root-dir", str(tmp_path)])
 

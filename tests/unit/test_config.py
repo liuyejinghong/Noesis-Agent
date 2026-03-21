@@ -84,6 +84,18 @@ class TestNoesisSettings:
 
         assert settings.symbol == "SOLUSDT"
 
+    def test_unknown_env_var_does_not_break_toml_merge(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        config_path = write_toml(tmp_path / "config.toml", 'symbol = "ETHUSDT"')
+        monkeypatch.setenv("NOESIS_UNKNOWN_SETTING", "ignored")
+
+        settings = NoesisSettings(config_path=config_path)
+
+        assert settings.symbol == "ETHUSDT"
+
 
 class TestExchangeConfig:
     def test_api_key_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:

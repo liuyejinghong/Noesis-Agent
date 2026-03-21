@@ -72,7 +72,11 @@ def _apply_override_paths(
 ) -> dict[str, Any]:
     result = dict(merged)
     for path in sorted(override_paths):
-        _set_nested_value(result, path, _get_nested_value(current, path))
+        try:
+            value = _get_nested_value(current, path)
+        except KeyError:
+            continue
+        _set_nested_value(result, path, value)
     return result
 
 

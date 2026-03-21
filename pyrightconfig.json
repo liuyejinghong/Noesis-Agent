@@ -1,0 +1,13 @@
+{
+  "include": ["src", "tests"],
+  "extraPaths": ["src"],
+  "venvPath": ".",
+  "venv": ".venv",
+  "reportExplicitAny": "none",
+  "reportMissingImports": "none",
+  "reportUnannotatedClassAttribute": "none",
+  "reportUnknownArgumentType": "none",
+  "reportUnknownMemberType": "none",
+  "reportUnknownVariableType": "none",
+  "reportUntypedBaseClass": "none"
+}

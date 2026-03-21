@@ -1,0 +1,36 @@
+strategy_id = "template"
+strategy_name = "template"
+display_name = "Template Strategy"
+description = "Copy this file to define a concrete strategy profile."
+tags = ["template"]
+status = "active"
+source_type = "built_in"
+
+[parameters]
+fast_window = 20
+slow_window = 60
+
+[risk]
+max_position_size = 0.02
+
+[trade_management]
+stop_loss_pct = 0.02
+take_profit_pct = 0.04
+trailing_stop_pct = 0.015
+max_holding_bars = 120
+cooldown_bars = 4
+confirm_bars = 2
+
+[optimize]
+default_method = "grid"
+timeframes = ["15m", "1h"]
+lookback_days = 180
+random_max_trials = 24
+
+[optimize.parameter_space]
+fast_window = [10, 20, 30]
+slow_window = [50, 60, 80]
+
+[optimize.trade_management_parameter_space]
+stop_loss_pct = [0.01, 0.02, 0.03]
+take_profit_pct = [0.02, 0.04, 0.06]

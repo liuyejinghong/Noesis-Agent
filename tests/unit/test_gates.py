@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from noesis_agent.agent.roles.types import BacktestComparison
 from noesis_agent.agent.gates import (
     gate_1_failure_memory,
     gate_2_backtest_comparison,
@@ -8,6 +7,7 @@ from noesis_agent.agent.gates import (
     gate_4_testnet_period,
     gate_5_testnet_performance,
 )
+from noesis_agent.agent.roles.types import BacktestComparison
 
 
 def make_comparison(*, total_return_pct: float, max_drawdown_pct: float) -> BacktestComparison:

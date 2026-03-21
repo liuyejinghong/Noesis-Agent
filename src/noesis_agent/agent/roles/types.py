@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from noesis_agent.core.models import generate_run_id
 
 
-class ProposalStatus(str, Enum):
+class ProposalStatus(StrEnum):
     DRAFT = "draft"
     GATE_1_MEMORY = "gate_1_memory"
     GATE_2_BACKTEST = "gate_2_backtest"

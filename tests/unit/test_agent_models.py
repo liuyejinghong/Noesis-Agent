@@ -5,6 +5,7 @@ from typing import cast
 import pytest
 from pydantic import BaseModel
 from pydantic_ai import Agent
+from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.models.test import TestModel
 
 from noesis_agent.agent.models import ModelRouter
@@ -93,3 +94,37 @@ def test_create_agent_runs_with_test_model_and_structured_output() -> None:
     output = cast(SimpleOutput, result.output)
 
     assert output == SimpleOutput(answer="a")
+
+
+def test_create_agent_with_base_url_builds_openai_chat_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for env_name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+        monkeypatch.delenv(env_name, raising=False)
+    monkeypatch.setenv("AIPAIBOX_CLAUDE_API_KEY", "relay-secret")
+
+    router = ModelRouter(
+        {
+            "analyst": AgentRoleConfig(
+                model="claude-sonnet-4-6",
+                base_url="https://api.aipaibox.com/v1",
+                api_key_env="AIPAIBOX_CLAUDE_API_KEY",
+            )
+        }
+    )
+
+    agent = router.create_agent("analyst")
+    model = cast(OpenAIChatModel, agent.__dict__["_model"])
+
+    assert isinstance(model, OpenAIChatModel)
+    assert model.model_name == "claude-sonnet-4-6"
+    assert str(model.client.base_url) == "https://api.aipaibox.com/v1/"
+    assert model.client.api_key == "relay-secret"
+
+
+def test_create_agent_without_base_url_keeps_string_shortcut_behavior() -> None:
+    router = ModelRouter({"analyst": AgentRoleConfig(model="test")})
+
+    agent = router.create_agent("analyst")
+
+    assert isinstance(agent.__dict__["_model"], TestModel)

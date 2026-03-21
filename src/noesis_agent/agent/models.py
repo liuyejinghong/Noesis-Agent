@@ -41,7 +41,19 @@ class ModelRouter:
         deps_type: type | None = None,
     ) -> Agent[Any, Any]:
         config = self.get_role_config(role)
-        model: str | object = config.model
+        model: str | object
+
+        if config.base_url:
+            from pydantic_ai.models.openai import OpenAIChatModel
+            from pydantic_ai.providers.openai import OpenAIProvider
+
+            provider = OpenAIProvider(
+                base_url=config.base_url,
+                api_key=config.resolve_api_key(),
+            )
+            model = OpenAIChatModel(config.model, provider=provider)
+        else:
+            model = config.model
 
         if config.fallback:
             from pydantic_ai.models.fallback import FallbackModel

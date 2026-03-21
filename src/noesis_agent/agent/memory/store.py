@@ -169,10 +169,10 @@ def _serialize_tags(tags: list[str]) -> str:
 
 
 def _normalize_fts_query(query: str) -> str:
-    terms = [term for term in re.split(r"[^0-9A-Za-z]+", query.lower()) if term]
+    terms = re.findall(r"[0-9a-z\u3400-\u4dbf\u4e00-\u9fff]+", query.lower())
     if not terms:
         return '""'
-    return " ".join(f'"{term}"' for term in terms)
+    return " ".join(terms)
 
 
 def _row_to_record(row: sqlite3.Row) -> MemoryRecord:

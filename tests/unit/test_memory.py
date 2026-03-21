@@ -88,6 +88,24 @@ def test_search_similar_normalizes_hyphenated_terms(tmp_path: Path) -> None:
     assert matches[0].title == "BTC-USDT breakout note"
 
 
+def test_search_similar_matches_cjk_terms(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db")
+    _ = store.store(
+        MemoryRecord(
+            memory_type="knowledge",
+            category="report",
+            title="震荡市策略分析",
+            content="这份报告讨论了震荡行情中的仓位管理。",
+            tags=["震荡", "策略"],
+        )
+    )
+
+    matches = store.search_similar("震荡")
+
+    assert len(matches) == 1
+    assert matches[0].title == "震荡市策略分析"
+
+
 def test_failure_records_are_not_returned_by_get_reports(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "memory.db")
     _ = store.store(

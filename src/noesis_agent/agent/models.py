@@ -1,4 +1,10 @@
+# pyright: reportAny=false
+
 from __future__ import annotations
+
+from typing import Any
+
+from pydantic_ai import Agent
 
 from noesis_agent.core.config import AgentRoleConfig
 
@@ -25,3 +31,32 @@ class ModelRouter:
         if config is None:
             raise ValueError(f"Unknown agent role: {role}")
         return config
+
+    def create_agent(
+        self,
+        role: str,
+        *,
+        output_type: type | None = None,
+        tools: list[Any] | None = None,
+        deps_type: type | None = None,
+    ) -> Agent[Any, Any]:
+        config = self.get_role_config(role)
+        model: str | object = config.model
+
+        if config.fallback:
+            from pydantic_ai.models.fallback import FallbackModel
+
+            model = FallbackModel(model, config.fallback)
+
+        kwargs: dict[str, Any] = {}
+        if output_type is not None:
+            kwargs["output_type"] = output_type
+        if deps_type is not None:
+            kwargs["deps_type"] = deps_type
+
+        return Agent(
+            model,
+            instructions=config.system_prompt or None,
+            tools=tools or [],
+            **kwargs,
+        )

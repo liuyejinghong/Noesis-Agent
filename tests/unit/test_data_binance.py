@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import cast
 
+import httpx
 import pandas as pd
 import pytest
 
@@ -11,26 +12,34 @@ from noesis_agent.data.binance import BinanceFuturesAdapter, BinanceSpotAdapter
 
 
 class _MockResponse:
-    def __init__(self, payload: object) -> None:
+    def __init__(self, payload: object, *, status_code: int = 200, url: str = "https://example.test") -> None:
         self._payload = payload
+        self._status_code = status_code
+        self._url = url
 
     def raise_for_status(self) -> None:
-        return None
+        if self._status_code >= 400:
+            request = httpx.Request("GET", self._url)
+            response = httpx.Response(self._status_code, json=self._payload, request=request)
+            raise httpx.HTTPStatusError("mock error", request=request, response=response)
 
     def json(self) -> object:
         return self._payload
 
 
 class _MockHttpClient:
-    def __init__(self, payloads: list[object]) -> None:
+    def __init__(self, payloads: list[object], *, status_codes: list[int] | None = None) -> None:
         self._payloads = payloads
+        self._status_codes = status_codes or [200] * len(payloads)
         self.calls: list[dict[str, object]] = []
 
     def get(self, url: str, *, params: dict[str, object], timeout: float) -> _MockResponse:
         self.calls.append({"url": url, "params": params, "timeout": timeout})
         if not self._payloads:
             raise AssertionError("No payload queued for mock client")
-        return _MockResponse(self._payloads.pop(0))
+        payload = self._payloads.pop(0)
+        status_code = self._status_codes.pop(0)
+        return _MockResponse(payload, status_code=status_code, url=url)
 
 
 def test_binance_futures_adapter_exposes_market_data_adapter_surface() -> None:
@@ -72,9 +81,14 @@ def test_fetch_klines_parses_binance_payload_into_utc_ohlcv_frame() -> None:
 
 
 def test_fetch_klines_raises_value_error_for_binance_error_payload() -> None:
-    adapter = BinanceFuturesAdapter(http_client=_MockHttpClient([{"code": -1121, "msg": "Invalid symbol."}]))
+    adapter = BinanceFuturesAdapter(
+        http_client=_MockHttpClient(
+            [{"code": -1121, "msg": "Invalid symbol."}],
+            status_codes=[400],
+        )
+    )
 
-    with pytest.raises(ValueError, match="BTCUSDT"):
+    with pytest.raises(ValueError, match=r"BTCUSDT.*1h"):
         _ = adapter.fetch_klines(symbol="BTCUSDT", interval="1h")
 
 
@@ -121,9 +135,13 @@ def test_fetch_klines_range_paginates_and_deduplicates_rows() -> None:
 
 
 def test_binance_spot_adapter_uses_spot_source_id() -> None:
-    adapter = BinanceSpotAdapter(http_client=_MockHttpClient([[]]))
+    client = _MockHttpClient([[]])
+    adapter = BinanceSpotAdapter(http_client=client)
+
+    _ = adapter.fetch_klines(symbol="BTCUSDT", interval="1h")
 
     assert adapter.source_id == "binance_spot"
+    assert client.calls[0]["url"] == "https://api.binance.com/api/v3/klines"
 
 
 def _build_payload(*, start_open_ms: int, count: int, interval_ms: int) -> list[list[object]]:

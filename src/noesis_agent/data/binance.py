@@ -41,12 +41,27 @@ class _BinanceKlinesAdapter:
             params["endTime"] = end_time_ms
 
         response = self._http_client.get(self._base_url, params=params, timeout=20.0)
-        _ = response.raise_for_status()
-        payload = cast(object, response.json())
+        try:
+            _ = response.raise_for_status()
+            payload = cast(object, response.json())
+        except httpx.HTTPStatusError as exc:
+            payload = _response_json(exc.response)
+            if isinstance(payload, dict):
+                raise _binance_payload_error(
+                    market_label=self._market_label,
+                    symbol=symbol,
+                    interval=interval,
+                    payload=payload,
+                ) from exc
+            raise
 
         if isinstance(payload, dict):
-            error_message = str(payload.get("msg") or "unknown Binance error")
-            raise ValueError(f"{self._market_label} klines error for {symbol} {interval}: {error_message}")
+            raise _binance_payload_error(
+                market_label=self._market_label,
+                symbol=symbol,
+                interval=interval,
+                payload=payload,
+            )
         if not isinstance(payload, list):
             raise ValueError(f"Unexpected Binance payload for {symbol} {interval}: {payload!r}")
 
@@ -160,3 +175,18 @@ def _to_int(value: object) -> int:
 
 def _to_float(value: object) -> float:
     return float(cast(float | int | str, value))
+
+
+def _response_json(response: httpx.Response) -> object:
+    return cast(object, response.json())
+
+
+def _binance_payload_error(
+    *,
+    market_label: str,
+    symbol: str,
+    interval: str,
+    payload: dict[object, object],
+) -> ValueError:
+    error_message = str(payload.get("msg") or "unknown Binance error")
+    return ValueError(f"{market_label} klines error for {symbol} {interval}: {error_message}")

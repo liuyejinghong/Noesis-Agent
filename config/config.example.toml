@@ -9,19 +9,19 @@ read_only = false
 max_daily_loss_pct = 0.05
 
 [trade_management]
-stop_loss_pct = 0.02
-take_profit_pct = 0.04
-trailing_stop_pct = 0.015
-max_holding_bars = 120
-cooldown_bars = 4
-confirm_bars = 2
+# stop_loss_pct = 0.02
+# take_profit_pct = 0.04
+# trailing_stop_pct = 0.015
+# max_holding_bars = 120
+# cooldown_bars = 4
+# confirm_bars = 2
 
 [exchange]
 exchange_id = "binance_usdm"
 account_type = "futures"
-base_url = "https://fapi.binance.com"
-api_key_env = "BINANCE_API_KEY"
-api_secret_env = "BINANCE_API_SECRET"
+# base_url = "https://fapi.binance.com"
+# api_key_env = "BINANCE_API_KEY"
+# api_secret_env = "BINANCE_API_SECRET"
 
 [agent_roles.researcher]
 model = "openai:gpt-4o"

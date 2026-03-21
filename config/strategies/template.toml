@@ -11,7 +11,7 @@ fast_window = 20
 slow_window = 60
 
 [risk]
-max_position_size = 0.02
+# max_position_size = 0.02
 
 [trade_management]
 stop_loss_pct = 0.02
@@ -24,7 +24,7 @@ confirm_bars = 2
 [optimize]
 default_method = "grid"
 timeframes = ["15m", "1h"]
-lookback_days = 180
+lookback_days = 90
 random_max_trials = 24
 
 [optimize.parameter_space]

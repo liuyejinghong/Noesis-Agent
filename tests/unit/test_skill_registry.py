@@ -1,3 +1,5 @@
+# pyright: reportAny=false, reportUnusedParameter=false, reportUnusedCallResult=false
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,6 +8,7 @@ from typing import Any
 import pytest
 
 from noesis_agent.agent.skills.registry import SkillContext, SkillRegistry, SkillResult
+from noesis_agent.core.config import NoesisSettings
 from noesis_agent.core.models import AppContext
 
 
@@ -53,13 +56,18 @@ def test_get_unknown_raises_key_error() -> None:
 
 def test_list_skills_returns_sorted_names() -> None:
     registry = SkillRegistry()
+    context = SkillContext(app_context=make_app_context())
 
-    registry.register(
-        "zeta", lambda context: SkillResult(success=True, data={"root": str(context.app_context.root_dir)})
-    )
-    registry.register(
-        "alpha", lambda context: SkillResult(success=True, data={"root": str(context.app_context.root_dir)})
-    )
+    def zeta_skill(skill_context: SkillContext) -> SkillResult:
+        return SkillResult(success=True, data={"root": str(skill_context.app_context.root_dir)})
+
+    def alpha_skill(skill_context: SkillContext) -> SkillResult:
+        return SkillResult(success=True, data={"root": str(skill_context.app_context.root_dir)})
+
+    registry.register("zeta", zeta_skill)
+    registry.register("alpha", alpha_skill)
+
+    assert registry.get("alpha")(context).success is True
 
     assert registry.list_skills() == ["alpha", "zeta"]
 
@@ -67,9 +75,10 @@ def test_list_skills_returns_sorted_names() -> None:
 def test_has_skill_reports_presence() -> None:
     registry = SkillRegistry()
 
-    registry.register(
-        "alpha", lambda context: SkillResult(success=True, data={"root": str(context.app_context.root_dir)})
-    )
+    def alpha_skill(skill_context: SkillContext) -> SkillResult:
+        return SkillResult(success=True, data={"root": str(skill_context.app_context.root_dir)})
+
+    registry.register("alpha", alpha_skill)
 
     assert registry.has_skill("alpha") is True
     assert registry.has_skill("beta") is False
@@ -101,3 +110,18 @@ def test_end_to_end_registered_skill_returns_skill_result() -> None:
         },
         message="Backtest scheduled",
     )
+
+
+def test_skill_context_can_carry_pre_resolved_settings_dependency(tmp_path: Path) -> None:
+    registry = SkillRegistry()
+
+    def read_symbol(context: SkillContext) -> SkillResult:
+        assert context.settings is not None
+        return SkillResult(success=True, data={"symbol": context.settings.symbol})
+
+    registry.register("read_symbol", read_symbol)
+    context = SkillContext(app_context=make_app_context(), settings=NoesisSettings(root_dir=tmp_path, symbol="ETHUSDT"))
+
+    result = registry.get("read_symbol")(context)
+
+    assert result == SkillResult(success=True, data={"symbol": "ETHUSDT"})

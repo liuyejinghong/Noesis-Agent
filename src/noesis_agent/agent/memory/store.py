@@ -1,6 +1,9 @@
+# pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportAny=false
+
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
@@ -39,7 +42,7 @@ class MemoryStore:
             Path(db_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
         self._connection = sqlite3.connect(db_path)
         self._connection.row_factory = sqlite3.Row
-        self._connection.executescript(SCHEMA)
+        _ = self._connection.executescript(SCHEMA)
 
     def store(self, record: MemoryRecord) -> int:
         stamp = _utc_now()
@@ -72,8 +75,10 @@ class MemoryStore:
                 stamp,
             ),
         )
-        record_id = int(cursor.lastrowid)
-        self._connection.execute(
+        if cursor.lastrowid is None:
+            raise RuntimeError("Failed to persist memory record")
+        record_id = cursor.lastrowid
+        _ = self._connection.execute(
             "INSERT INTO memory_fts(rowid, title, content, tags) VALUES (?, ?, ?, ?)",
             (record_id, record.title, record.content, tags),
         )
@@ -101,11 +106,11 @@ class MemoryStore:
             clauses.append("category = ?")
             params.append(category)
         if tags:
-            clauses.extend("tags LIKE ?" for _ in tags)
-            params.extend(f"%{tag}%" for tag in tags)
+            clauses.extend("(',' || tags || ',') LIKE ?" for _ in tags)
+            params.extend(f"%,{tag},%" for tag in tags)
 
         params.append(limit)
-        query = f"SELECT * FROM memory_records WHERE {' AND '.join(clauses)} ORDER BY created_at DESC LIMIT ?"
+        query = f"SELECT * FROM memory_records WHERE {' AND '.join(clauses)} ORDER BY created_at DESC LIMIT ?"  # noqa: S608
         rows = self._connection.execute(query, params).fetchall()
         return [_row_to_record(row) for row in rows]
 
@@ -119,12 +124,12 @@ class MemoryStore:
             ORDER BY bm25(memory_fts), memory_records.created_at DESC
             LIMIT ?
             """,
-            (query, top_k),
+            (_normalize_fts_query(query), top_k),
         ).fetchall()
         return [_row_to_record(row) for row in rows]
 
     def get_proposals(self, *, strategy_id: str | None = None, status: str | None = None) -> list[MemoryRecord]:
-        clauses = ["category = 'proposal'"]
+        clauses = ["category = 'proposal'", "memory_type != 'failure'"]
         params: list[Any] = []
 
         if strategy_id is not None:
@@ -135,13 +140,13 @@ class MemoryStore:
             params.append(status)
 
         rows = self._connection.execute(
-            f"SELECT * FROM memory_records WHERE {' AND '.join(clauses)} ORDER BY created_at DESC",
+            f"SELECT * FROM memory_records WHERE {' AND '.join(clauses)} ORDER BY created_at DESC",  # noqa: S608
             params,
         ).fetchall()
         return [_row_to_record(row) for row in rows]
 
     def get_reports(self, *, period: str | None = None) -> list[MemoryRecord]:
-        clauses = ["category = 'report'", "memory_type != 'failure'"]
+        clauses = ["category IN ('report', 'analysis_report')", "memory_type != 'failure'"]
         params: list[Any] = []
 
         if period is not None:
@@ -149,7 +154,7 @@ class MemoryStore:
             params.append(f"{period}%")
 
         rows = self._connection.execute(
-            f"SELECT * FROM memory_records WHERE {' AND '.join(clauses)} ORDER BY created_at DESC",
+            f"SELECT * FROM memory_records WHERE {' AND '.join(clauses)} ORDER BY created_at DESC",  # noqa: S608
             params,
         ).fetchall()
         return [_row_to_record(row) for row in rows]
@@ -161,6 +166,13 @@ def _utc_now() -> str:
 
 def _serialize_tags(tags: list[str]) -> str:
     return ",".join(tags)
+
+
+def _normalize_fts_query(query: str) -> str:
+    terms = [term for term in re.split(r"[^0-9A-Za-z]+", query.lower()) if term]
+    if not terms:
+        return '""'
+    return " ".join(f'"{term}"' for term in terms)
 
 
 def _row_to_record(row: sqlite3.Row) -> MemoryRecord:

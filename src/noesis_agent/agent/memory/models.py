@@ -1,3 +1,5 @@
+# pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportArgumentType=false
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -29,7 +31,7 @@ class FailureRecord(MemoryRecord):
         title: str,
         content: str,
         tags: list[str] | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> None:
         super().__init__(
             memory_type="failure",

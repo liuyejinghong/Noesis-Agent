@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
+from noesis_agent.core.config import NoesisSettings
 from noesis_agent.core.models import AppContext
 
 
@@ -16,6 +18,7 @@ class SkillResult:
 @dataclass
 class SkillContext:
     app_context: AppContext
+    settings: NoesisSettings | None = None
 
 
 class SkillRegistry:

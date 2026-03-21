@@ -70,6 +70,24 @@ def test_search_similar_uses_fts5_to_match_relevant_record(tmp_path: Path) -> No
     assert matches[0].title == "Trend day summary"
 
 
+def test_search_similar_normalizes_hyphenated_terms(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db")
+    _ = store.store(
+        MemoryRecord(
+            memory_type="knowledge",
+            category="report",
+            title="BTC-USDT breakout note",
+            content="BTC USDT breakout held above resistance.",
+            tags=["btc-usdt", "breakout"],
+        )
+    )
+
+    matches = store.search_similar("btc-usdt breakout")
+
+    assert len(matches) == 1
+    assert matches[0].title == "BTC-USDT breakout note"
+
+
 def test_failure_records_are_not_returned_by_get_reports(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "memory.db")
     _ = store.store(
@@ -94,6 +112,23 @@ def test_failure_records_are_not_returned_by_get_reports(tmp_path: Path) -> None
     assert len(reports) == 1
     assert reports[0].memory_type == "knowledge"
     assert reports[0].title == "Daily report"
+
+
+def test_get_reports_accepts_analysis_report_category(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db")
+    _ = store.store(
+        MemoryRecord(
+            memory_type="knowledge",
+            category="analysis_report",
+            title="Structured report",
+            content="The setup matched the regime template.",
+        )
+    )
+
+    reports = store.get_reports()
+
+    assert len(reports) == 1
+    assert reports[0].category == "analysis_report"
 
 
 def test_get_proposals_filters_by_proposal_category(tmp_path: Path) -> None:
@@ -124,6 +159,59 @@ def test_get_proposals_filters_by_proposal_category(tmp_path: Path) -> None:
     assert len(proposals) == 1
     assert proposals[0].category == "proposal"
     assert proposals[0].title == "Add confirmation filter"
+
+
+def test_get_proposals_excludes_failure_records(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db")
+    _ = store.store(
+        MemoryRecord(
+            memory_type="knowledge",
+            category="proposal",
+            strategy_id="breakout",
+            title="Live proposal",
+            content="Increase confirmation bars during chop.",
+        )
+    )
+    _ = store.store_failure(
+        FailureRecord(
+            strategy_id="breakout",
+            category="proposal",
+            title="Rejected proposal",
+            content="This failed in validation.",
+        )
+    )
+
+    proposals = store.get_proposals()
+
+    assert len(proposals) == 1
+    assert proposals[0].title == "Live proposal"
+
+
+def test_query_failures_matches_complete_tags_only(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db")
+    _ = store.store_failure(
+        FailureRecord(
+            strategy_id="mean_reversion",
+            category="execution",
+            title="Exact tag",
+            content="Matched the intended tag.",
+            tags=["risk"],
+        )
+    )
+    _ = store.store_failure(
+        FailureRecord(
+            strategy_id="mean_reversion",
+            category="execution",
+            title="Near match",
+            content="Should not match substring tags.",
+            tags=["brisk"],
+        )
+    )
+
+    failures = store.query_failures(tags=["risk"])
+
+    assert len(failures) == 1
+    assert failures[0].title == "Exact tag"
 
 
 def test_memory_store_supports_in_memory_database() -> None:

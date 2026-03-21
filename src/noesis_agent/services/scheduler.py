@@ -1,9 +1,11 @@
+# pyright: reportMissingTypeStubs=false, reportUnknownArgumentType=false, reportUnknownMemberType=false, reportAny=false, reportUnusedImport=false, reportUnusedCallResult=false
+
 from __future__ import annotations
 
-import asyncio
+import inspect
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, cast
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -46,12 +48,12 @@ class NoesisScheduler:
     async def emit_event(self, event_type: str, payload: dict[str, Any] | None = None) -> None:
         for handler in self._event_handlers.get(event_type, []):
             result = handler(payload or {})
-            if asyncio.iscoroutine(result):
-                await result
+            if inspect.isawaitable(result):
+                await cast(Awaitable[object], result)
 
     def add_heartbeat(self, name: str, trigger: str, func: Callable[[], Any], **trigger_args: Any) -> None:
         if self._scheduler is not None:
-            self._scheduler.add_job(func, trigger, id=name, replace_existing=True, **trigger_args)
+            _ = self._scheduler.add_job(func, trigger, id=name, replace_existing=True, **trigger_args)
 
     def _emit_heartbeat(self, scope: str) -> Callable[[], Awaitable[None]]:
         async def heartbeat() -> None:

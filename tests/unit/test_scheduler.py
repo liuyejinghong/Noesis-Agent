@@ -1,14 +1,17 @@
+# pyright: reportPrivateUsage=false, reportUnknownMemberType=false, reportAttributeAccessIssue=false
+
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
-from typing import Any
-from unittest.mock import MagicMock
+from collections.abc import Coroutine
+from typing import Any, TypeVar
 
 from noesis_agent.services.scheduler import NoesisScheduler
 
+T = TypeVar("T")
 
-def run(coro: Any) -> Any:
+
+def run(coro: Coroutine[Any, Any, T]) -> T:
     return asyncio.run(coro)
 
 
@@ -65,18 +68,23 @@ def test_emit_event_ignores_unknown_event_types() -> None:
 
 def test_add_heartbeat_registers_job_on_underlying_scheduler() -> None:
     scheduler = NoesisScheduler()
-    mock_scheduler = MagicMock()
-    scheduler._scheduler = mock_scheduler
+    calls: list[tuple[object, str, dict[str, object]]] = []
+
+    class FakeScheduler:
+        def add_job(self, func: object, trigger: str, **kwargs: object) -> None:
+            calls.append((func, trigger, kwargs))
+
+    scheduler._scheduler = FakeScheduler()
 
     def heartbeat() -> None:
         return None
 
     scheduler.add_heartbeat("minute-heartbeat", "interval", heartbeat, minutes=1)
 
-    mock_scheduler.add_job.assert_called_once_with(
-        heartbeat,
-        "interval",
-        id="minute-heartbeat",
-        replace_existing=True,
-        minutes=1,
-    )
+    assert calls == [
+        (
+            heartbeat,
+            "interval",
+            {"id": "minute-heartbeat", "replace_existing": True, "minutes": 1},
+        )
+    ]

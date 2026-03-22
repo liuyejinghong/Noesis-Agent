@@ -98,8 +98,8 @@ def test_refresh_tokens_posts_expected_payload(monkeypatch: Any, tmp_path: Path)
     )
     captured: dict[str, Any] = {}
 
-    def fake_post(url: str, *, data: dict[str, str], timeout: float, trust_env: bool) -> httpx.Response:
-        captured.update({"url": url, "data": data, "timeout": timeout, "trust_env": trust_env})
+    def fake_post(url: str, *, data: dict[str, str], timeout: float, **kwargs: Any) -> httpx.Response:
+        captured.update({"url": url, "data": data, "timeout": timeout})
         return httpx.Response(
             200,
             json={
@@ -121,8 +121,7 @@ def test_refresh_tokens_posts_expected_payload(monkeypatch: Any, tmp_path: Path)
             "refresh_token": "refresh-token",
             "client_id": CLIENT_ID,
         },
-        "timeout": 10.0,
-        "trust_env": False,
+        "timeout": 30.0,
     }
     assert refreshed["access"] == "new-access"
     assert refreshed["refresh"] == "new-refresh"
@@ -280,14 +279,13 @@ def test_login_authorization_url_contains_pkce_and_redirect(monkeypatch: Any, tm
         def server_close(self) -> None:
             return None
 
-    def fake_post(url: str, *, data: dict[str, str], timeout: float, trust_env: bool) -> httpx.Response:
+    def fake_post(url: str, *, data: dict[str, str], timeout: float, **kwargs: Any) -> httpx.Response:
         assert url == TOKEN_URL
         assert data["code"] == "oauth-code"
         assert data["redirect_uri"] == REDIRECT_URI
         assert data["client_id"] == CLIENT_ID
         assert data["grant_type"] == "authorization_code"
         assert data["code_verifier"]
-        assert trust_env is False
         return httpx.Response(
             200,
             json={

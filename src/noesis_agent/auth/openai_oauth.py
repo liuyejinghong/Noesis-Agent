@@ -183,8 +183,7 @@ class OpenAIAuthManager:
                 "refresh_token": refresh_token,
                 "client_id": CLIENT_ID,
             },
-            timeout=10.0,
-            trust_env=False,
+            timeout=30.0,
         )
         if response.is_error:
             response.raise_for_status()
@@ -271,8 +270,7 @@ def openai_login(auth_file: Path | None = None, *, timeout_seconds: float = 300.
                 "client_id": CLIENT_ID,
                 "code_verifier": code_verifier,
             },
-            timeout=10.0,
-            trust_env=False,
+            timeout=30.0,
         )
         if response.is_error:
             response.raise_for_status()

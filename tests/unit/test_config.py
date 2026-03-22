@@ -137,6 +137,11 @@ class TestAgentRoleConfig:
 
         assert config.resolve_api_key() is None
 
+    def test_accepts_oauth_auth_type(self) -> None:
+        config = AgentRoleConfig(model="gpt-4o", auth_type="oauth_openai")
+
+        assert config.auth_type == "oauth_openai"
+
 
 class TestRiskConfig:
     def test_defaults(self) -> None:

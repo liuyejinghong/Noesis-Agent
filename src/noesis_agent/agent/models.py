@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic_ai import Agent
 
+from noesis_agent.auth.openai_oauth import OpenAIAuthManager
 from noesis_agent.core.config import AgentRoleConfig
 
 
@@ -43,7 +44,12 @@ class ModelRouter:
         config = self.get_role_config(role)
         model: str | object
 
-        if config.base_url:
+        if config.auth_type == "oauth_openai":
+            from pydantic_ai.models.openai import OpenAIChatModel
+
+            provider = OpenAIAuthManager().make_provider()
+            model = OpenAIChatModel(config.model, provider=provider)
+        elif config.base_url:
             from pydantic_ai.models.openai import OpenAIChatModel
             from pydantic_ai.providers.openai import OpenAIProvider
 

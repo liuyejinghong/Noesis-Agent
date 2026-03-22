@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from typing import cast
 
+import httpx
 import pytest
 from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.models.test import TestModel
+from pydantic_ai.providers.openai import OpenAIProvider
 
 from noesis_agent.agent.models import ModelRouter
 from noesis_agent.core.config import AgentRoleConfig
@@ -128,3 +130,34 @@ def test_create_agent_without_base_url_keeps_string_shortcut_behavior() -> None:
     agent = router.create_agent("analyst")
 
     assert isinstance(agent.__dict__["_model"], TestModel)
+
+
+def test_create_agent_with_oauth_auth_type_builds_openai_chat_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeAuthManager:
+        def make_provider(self) -> OpenAIProvider:
+            return OpenAIProvider(
+                base_url="https://chatgpt.com/backend-api/wham",
+                api_key="oauth-token",
+                http_client=httpx.AsyncClient(trust_env=False),
+            )
+
+    monkeypatch.setattr("noesis_agent.agent.models.OpenAIAuthManager", FakeAuthManager)
+
+    router = ModelRouter(
+        {
+            "analyst": AgentRoleConfig(
+                model="gpt-4o",
+                auth_type="oauth_openai",
+            )
+        }
+    )
+
+    agent = router.create_agent("analyst")
+    model = cast(OpenAIChatModel, agent.__dict__["_model"])
+
+    assert isinstance(model, OpenAIChatModel)
+    assert model.model_name == "gpt-4o"
+    assert str(model.client.base_url).rstrip("/") == "https://chatgpt.com/backend-api/wham"
+    assert model.client.api_key == "oauth-token"

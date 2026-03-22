@@ -132,6 +132,7 @@ class AgentRoleConfig(BaseModel):
     fallback: str | None = None
     base_url: str | None = None
     api_key_env: str | None = None
+    auth_type: str | None = None
     system_prompt: str = ""
     tools: list[str] = Field(default_factory=list)
     output_format: str = "text"

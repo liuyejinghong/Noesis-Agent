@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 from noesis_agent.agent.roles.types import AnalysisReport, ProposalStatus
+from noesis_agent.auth.openai_oauth import OpenAIAuthManager, openai_login
 from noesis_agent.bootstrap import AppBootstrap
 
 app = typer.Typer(
@@ -17,7 +18,9 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 config_app = typer.Typer(help="配置管理")
+login_app = typer.Typer(help="登录管理")
 app.add_typer(config_app, name="config")
+app.add_typer(login_app, name="login")
 console = Console()
 
 
@@ -182,6 +185,41 @@ def proposals(
     for record in records:
         table.add_row(str(record.id), record.title, record.status, record.created_at or "")
     console.print(table)
+
+
+@login_app.command("openai", help="通过 OpenAI OAuth 登录")
+def login_openai() -> None:
+    try:
+        tokens = openai_login()
+    except Exception as exc:
+        console.print(f"[red]✗ OpenAI 登录失败: {exc}[/red]")
+        raise typer.Exit(code=1) from exc
+
+    account_id = tokens.get("accountId") or "未知账户"
+    console.print(f"[green]✓ OpenAI 登录成功[/green]")
+    console.print(f"  账户: {account_id}")
+
+
+@login_app.command("status", help="显示 OpenAI 登录状态")
+def login_status() -> None:
+    manager = OpenAIAuthManager()
+    tokens = manager.load_tokens()
+    if tokens is None:
+        console.print("[yellow]未登录[/yellow]")
+        return
+
+    account_id = tokens.get("accountId") or "未知账户"
+    console.print("[green]已登录[/green]")
+    console.print(f"  账户: {account_id}")
+
+
+@login_app.command("logout", help="清除 OpenAI OAuth 登录")
+def login_logout() -> None:
+    manager = OpenAIAuthManager()
+    if manager.clear_tokens():
+        console.print("[green]✓ 已退出 OpenAI 登录[/green]")
+        return
+    console.print("[yellow]未登录，无需退出[/yellow]")
 
 
 @config_app.command("show", help="显示当前配置")

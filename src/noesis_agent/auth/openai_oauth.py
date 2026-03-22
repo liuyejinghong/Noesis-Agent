@@ -1,8 +1,11 @@
+# pyright: reportAny=false, reportImplicitOverride=false, reportIncompatibleMethodOverride=false, reportUnusedCallResult=false
+
 from __future__ import annotations
 
 import base64
 import hashlib
 import json
+import os
 import secrets
 import threading
 import time
@@ -101,6 +104,7 @@ def _token_payload(token_response: dict[str, Any], existing: dict[str, Any] | No
 class OAuthCallbackState:
     code: str | None = None
     error: str | None = None
+    expected_state: str | None = None
     done: threading.Event = field(default_factory=threading.Event)
 
 
@@ -115,13 +119,18 @@ def build_callback_handler(state: OAuthCallbackState) -> type[BaseHTTPRequestHan
             query = parse_qs(parsed.query)
             code = query.get("code", [None])[0]
             error = query.get("error", [None])[0]
-            if isinstance(code, str) and code:
+            callback_state = query.get("state", [None])[0]
+            if state.expected_state is not None and callback_state != state.expected_state:
+                state.error = "invalid_state"
+                state.done.set()
+            elif isinstance(code, str) and code:
                 state.code = code
             elif isinstance(error, str) and error:
                 state.error = error
             else:
                 state.error = "missing_code"
-            state.done.set()
+            if not state.done.is_set():
+                state.done.set()
 
             body = b"OpenAI login complete. You can return to Noesis Agent."
             self.send_response(200)
@@ -148,8 +157,9 @@ class OpenAIAuthManager:
         return json.loads(self.auth_file.read_text(encoding="utf-8"))
 
     def save_tokens(self, payload: dict[str, Any]) -> dict[str, Any]:
-        self.auth_file.parent.mkdir(parents=True, exist_ok=True)
+        self.auth_file.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.auth_file.write_text(json.dumps(payload, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+        os.chmod(self.auth_file, 0o600)
         return payload
 
     def clear_tokens(self) -> bool:
@@ -174,6 +184,7 @@ class OpenAIAuthManager:
                 "client_id": CLIENT_ID,
             },
             timeout=10.0,
+            trust_env=False,
         )
         if response.is_error:
             response.raise_for_status()
@@ -212,7 +223,7 @@ def _generate_pkce_pair() -> tuple[str, str]:
     return verifier, challenge
 
 
-def _authorization_url(code_challenge: str) -> str:
+def _authorization_url(code_challenge: str, state: str) -> str:
     query = urlencode(
         {
             "response_type": "code",
@@ -221,6 +232,7 @@ def _authorization_url(code_challenge: str) -> str:
             "scope": SCOPE,
             "code_challenge": code_challenge,
             "code_challenge_method": "S256",
+            "state": state,
             "id_token_add_organizations": "true",
             "codex_cli_simplified_flow": "true",
             "originator": "noesis-agent",
@@ -232,13 +244,17 @@ def _authorization_url(code_challenge: str) -> str:
 def openai_login(auth_file: Path | None = None, *, timeout_seconds: float = 300.0) -> dict[str, Any]:
     manager = OpenAIAuthManager(auth_file=auth_file)
     code_verifier, code_challenge = _generate_pkce_pair()
+    oauth_state = secrets.token_urlsafe(32)
     state = OAuthCallbackState()
+    state.expected_state = oauth_state
     server = HTTPServer((CALLBACK_HOST, CALLBACK_PORT), build_callback_handler(state))
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
     server_thread.start()
 
     try:
-        webbrowser.open(_authorization_url(code_challenge))
+        auth_url = _authorization_url(code_challenge, oauth_state)
+        if webbrowser.open(auth_url) is False:
+            raise RuntimeError("OpenAI login browser launch failed")
         if not state.done.wait(timeout_seconds):
             raise TimeoutError("Timed out waiting for OpenAI login callback")
         if state.error:
@@ -256,6 +272,7 @@ def openai_login(auth_file: Path | None = None, *, timeout_seconds: float = 300.
                 "code_verifier": code_verifier,
             },
             timeout=10.0,
+            trust_env=False,
         )
         if response.is_error:
             response.raise_for_status()

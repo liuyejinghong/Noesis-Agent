@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 AUTH_URL = "https://auth.openai.com/oauth/authorize"
-TOKEN_URL = "https://auth.openai.com/oauth/token"
+TOKEN_URL = "https://auth.openai.com/oauth/token"  # noqa: S105
 BASE_URL = "https://chatgpt.com/backend-api/wham"
 CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
 SCOPE = "openid profile email offline_access"

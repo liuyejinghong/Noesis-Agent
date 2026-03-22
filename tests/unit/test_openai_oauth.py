@@ -1,3 +1,5 @@
+# pyright: reportAny=false, reportAttributeAccessIssue=false, reportUnknownLambdaType=false, reportPrivateLocalImportUsage=false, reportUnusedParameter=false, reportUnusedCallResult=false
+
 from __future__ import annotations
 
 import base64
@@ -7,11 +9,12 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import pytest
 
 from noesis_agent.auth.constants import BASE_URL, CLIENT_ID, REDIRECT_URI, TOKEN_URL
 from noesis_agent.auth.openai_oauth import (
-    OpenAIAuthManager,
     OAuthCallbackState,
+    OpenAIAuthManager,
     build_callback_handler,
     extract_account_id,
 )
@@ -73,6 +76,15 @@ def test_save_and_load_tokens_round_trip(tmp_path: Path) -> None:
     assert manager.load_tokens() == payload
 
 
+def test_save_tokens_writes_user_only_permissions(tmp_path: Path) -> None:
+    auth_file = tmp_path / "auth" / "openai.json"
+    manager = OpenAIAuthManager(auth_file=auth_file)
+
+    manager.save_tokens({"type": "oauth", "access": "a", "refresh": "r", "expires": 1, "accountId": "acct"})
+
+    assert auth_file.stat().st_mode & 0o777 == 0o600
+
+
 def test_refresh_tokens_posts_expected_payload(monkeypatch: Any, tmp_path: Path) -> None:
     manager = OpenAIAuthManager(auth_file=tmp_path / "openai.json")
     manager.save_tokens(
@@ -86,8 +98,8 @@ def test_refresh_tokens_posts_expected_payload(monkeypatch: Any, tmp_path: Path)
     )
     captured: dict[str, Any] = {}
 
-    def fake_post(url: str, *, data: dict[str, str], timeout: float) -> httpx.Response:
-        captured.update({"url": url, "data": data, "timeout": timeout})
+    def fake_post(url: str, *, data: dict[str, str], timeout: float, trust_env: bool) -> httpx.Response:
+        captured.update({"url": url, "data": data, "timeout": timeout, "trust_env": trust_env})
         return httpx.Response(
             200,
             json={
@@ -110,6 +122,7 @@ def test_refresh_tokens_posts_expected_payload(monkeypatch: Any, tmp_path: Path)
             "client_id": CLIENT_ID,
         },
         "timeout": 10.0,
+        "trust_env": False,
     }
     assert refreshed["access"] == "new-access"
     assert refreshed["refresh"] == "new-refresh"
@@ -180,7 +193,7 @@ def test_make_provider_uses_codex_base_url_and_headers(monkeypatch: Any, tmp_pat
 
 
 def test_callback_handler_captures_code_and_triggers_shutdown(monkeypatch: Any) -> None:
-    state = OAuthCallbackState(done=threading.Event())
+    state = OAuthCallbackState(expected_state="expected-state", done=threading.Event())
     server = DummyServer()
     shutdown_calls: list[str] = []
     original_thread = threading.Thread
@@ -197,7 +210,7 @@ def test_callback_handler_captures_code_and_triggers_shutdown(monkeypatch: Any) 
     handler_cls = build_callback_handler(state)
 
     handler = object.__new__(handler_cls)
-    handler.path = "/auth/callback?code=oauth-code"
+    handler.path = "/auth/callback?code=oauth-code&state=expected-state"
     handler.server = server
     handler.wfile = DummyWFile()
     handler.send_response = lambda _status: None
@@ -229,6 +242,25 @@ def test_callback_handler_ignores_non_callback_path() -> None:
     assert state.done.is_set() is False
 
 
+def test_callback_handler_rejects_mismatched_state(monkeypatch: Any) -> None:
+    state = OAuthCallbackState(expected_state="expected-state", done=threading.Event())
+    handler_cls = build_callback_handler(state)
+
+    handler = object.__new__(handler_cls)
+    handler.path = "/auth/callback?code=oauth-code&state=wrong-state"
+    handler.server = DummyServer()
+    handler.wfile = DummyWFile()
+    handler.send_response = lambda _status: None
+    handler.send_header = lambda _key, _value: None
+    handler.end_headers = lambda: None
+
+    handler.do_GET()
+
+    assert state.code is None
+    assert state.error == "invalid_state"
+    assert state.done.is_set() is True
+
+
 def test_login_authorization_url_contains_pkce_and_redirect(monkeypatch: Any, tmp_path: Path) -> None:
     opened_urls: list[str] = []
     state = OAuthCallbackState(code="oauth-code", done=threading.Event())
@@ -248,13 +280,14 @@ def test_login_authorization_url_contains_pkce_and_redirect(monkeypatch: Any, tm
         def server_close(self) -> None:
             return None
 
-    def fake_post(url: str, *, data: dict[str, str], timeout: float) -> httpx.Response:
+    def fake_post(url: str, *, data: dict[str, str], timeout: float, trust_env: bool) -> httpx.Response:
         assert url == TOKEN_URL
         assert data["code"] == "oauth-code"
         assert data["redirect_uri"] == REDIRECT_URI
         assert data["client_id"] == CLIENT_ID
         assert data["grant_type"] == "authorization_code"
         assert data["code_verifier"]
+        assert trust_env is False
         return httpx.Response(
             200,
             json={
@@ -278,5 +311,30 @@ def test_login_authorization_url_contains_pkce_and_redirect(monkeypatch: Any, tm
     assert tokens["access"] == "access-token"
     assert opened_urls
     assert "code_challenge=" in opened_urls[0]
+    assert "state=" in opened_urls[0]
     assert "response_type=code" in opened_urls[0]
     assert f"redirect_uri={REDIRECT_URI.replace(':', '%3A').replace('/', '%2F')}" in opened_urls[0]
+
+
+def test_login_fails_fast_when_browser_cannot_open(monkeypatch: Any, tmp_path: Path) -> None:
+    from noesis_agent.auth import openai_oauth
+
+    class DummyHTTPServer:
+        def __init__(self, server_address: tuple[str, int], handler_cls: Any) -> None:
+            self.server_address = server_address
+            self.handler_cls = handler_cls
+
+        def serve_forever(self) -> None:
+            return None
+
+        def shutdown(self) -> None:
+            return None
+
+        def server_close(self) -> None:
+            return None
+
+    monkeypatch.setattr(openai_oauth, "HTTPServer", DummyHTTPServer)
+    monkeypatch.setattr(openai_oauth.webbrowser, "open", lambda _url: False)
+
+    with pytest.raises(RuntimeError, match="OpenAI login browser launch failed"):
+        _ = openai_oauth.openai_login(auth_file=tmp_path / "openai.json")

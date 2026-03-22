@@ -196,7 +196,7 @@ def login_openai() -> None:
         raise typer.Exit(code=1) from exc
 
     account_id = tokens.get("accountId") or "未知账户"
-    console.print(f"[green]✓ OpenAI 登录成功[/green]")
+    console.print("[green]✓ OpenAI 登录成功[/green]")
     console.print(f"  账户: {account_id}")
 
 

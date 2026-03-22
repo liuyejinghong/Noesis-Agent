@@ -21,9 +21,7 @@ system_prompt = ""
 output_format = "structured"
 
 [agent_roles.validator]
-model = "gemini-3-flash"
-fallback = "claude-sonnet-4-6"
+model = "claude-sonnet-4-6"
 base_url = "https://api.aipaibox.com/v1"
-api_key_env = "AIPAIBOX_GEMINI_API_KEY"
-system_prompt = ""
+api_key_env = "AIPAIBOX_CLAUDE_API_KEY"
 output_format = "structured"

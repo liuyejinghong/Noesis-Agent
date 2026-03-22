@@ -10,6 +10,7 @@ import secrets
 import threading
 import time
 import webbrowser
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -226,7 +227,22 @@ def _make_codex_model(model_name: str, provider: OpenAIProvider) -> Any:
             settings = dict(model_settings or {})
             settings.setdefault("openai_store", False)
             async with super().request_stream(messages, settings, model_request_parameters) as stream:
+                async for _ in stream:
+                    pass
                 return stream.get()
+
+        @asynccontextmanager
+        async def request_stream(
+            self,
+            messages: Any,
+            model_settings: Any = None,
+            model_request_parameters: Any = None,
+            run_context: Any = None,
+        ) -> Any:
+            settings = dict(model_settings or {})
+            settings.setdefault("openai_store", False)
+            async with super().request_stream(messages, settings, model_request_parameters, run_context) as stream:
+                yield stream
 
     return _CodexModel(model_name, provider=provider)
 

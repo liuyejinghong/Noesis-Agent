@@ -155,9 +155,11 @@ def test_create_agent_with_oauth_auth_type_builds_openai_chat_model(
     )
 
     agent = router.create_agent("analyst")
-    model = cast(OpenAIChatModel, agent.__dict__["_model"])
+    model = agent.__dict__["_model"]
 
-    assert isinstance(model, OpenAIChatModel)
+    from pydantic_ai.models.openai import OpenAIResponsesModel
+
+    assert isinstance(model, OpenAIResponsesModel)
     assert model.model_name == "gpt-4o"
     assert str(model.client.base_url).rstrip("/") == "https://chatgpt.com/backend-api/wham"
     assert model.client.api_key == "oauth-token"

@@ -45,10 +45,10 @@ class ModelRouter:
         model: str | object
 
         if config.auth_type == "oauth_openai":
-            from pydantic_ai.models.openai import OpenAIChatModel
+            from noesis_agent.auth.openai_oauth import _make_codex_model
 
             provider = OpenAIAuthManager().make_provider()
-            model = OpenAIChatModel(config.model, provider=provider)
+            model = _make_codex_model(config.model, provider=provider)
         elif config.base_url:
             from pydantic_ai.models.openai import OpenAIChatModel
             from pydantic_ai.providers.openai import OpenAIProvider

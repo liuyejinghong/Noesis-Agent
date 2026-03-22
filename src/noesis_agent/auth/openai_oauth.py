@@ -206,7 +206,7 @@ class OpenAIAuthManager:
         account_id = tokens.get("accountId")
         if isinstance(account_id, str) and account_id:
             headers["ChatGPT-Account-Id"] = account_id
-        http_client = httpx.AsyncClient(trust_env=False)
+        http_client = httpx.AsyncClient(proxy=os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY"))
         openai_client = AsyncOpenAI(
             api_key=tokens["access"],
             base_url=BASE_URL,
@@ -214,6 +214,21 @@ class OpenAIAuthManager:
             http_client=http_client,
         )
         return OpenAIProvider(openai_client=openai_client)
+
+
+def _make_codex_model(model_name: str, provider: OpenAIProvider) -> Any:
+    from pydantic_ai.models.openai import OpenAIResponsesModel
+
+    class _CodexModel(OpenAIResponsesModel):
+        """Codex API requires stream=True and store=False. Overrides request() to force streaming."""
+
+        async def request(self, messages: Any, model_settings: Any = None, model_request_parameters: Any = None) -> Any:
+            settings = dict(model_settings or {})
+            settings.setdefault("openai_store", False)
+            async with super().request_stream(messages, settings, model_request_parameters) as stream:
+                return stream.get()
+
+    return _CodexModel(model_name, provider=provider)
 
 
 def _generate_pkce_pair() -> tuple[str, str]:

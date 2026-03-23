@@ -8,7 +8,7 @@ source_type = "built_in"
 
 [parameters]
 pivot_mode = "rolling"
-rolling_bars = 96
+rolling_bars = 16
 reverse_enabled = true
 reverse_to_opposite = false
 
@@ -22,6 +22,6 @@ timeframes = ["15m", "1h"]
 lookback_days = 90
 
 [optimize.parameter_space]
-rolling_bars = [48, 96, 192]
+rolling_bars = [8, 16, 24, 48]
 reverse_enabled = [true, false]
 reverse_to_opposite = [true, false]

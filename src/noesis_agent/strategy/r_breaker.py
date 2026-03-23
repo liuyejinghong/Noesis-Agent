@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 
 import pandas as pd
@@ -27,6 +28,7 @@ class RBreaker(StrategyBase):
         params = config.parameters
         self.pivot_mode = str(params.get("pivot_mode", "rolling"))
         self.rolling_bars = int(params.get("rolling_bars", 96))
+        self.order_mode = str(params.get("order_mode", "market"))
         self.reverse_enabled = bool(params.get("reverse_enabled", True))
         self.reverse_to_opposite = bool(params.get("reverse_to_opposite", False))
         self.warmup_bars = max(
@@ -95,8 +97,17 @@ class RBreaker(StrategyBase):
                 strategy_id=self.strategy_id,
                 symbol=config.symbol,
                 side=signal.side,
-                order_type=OrderType.MARKET,
+                order_type=(
+                    OrderType.LIMIT
+                    if self.order_mode == "limit" and signal.side != SignalSide.FLAT
+                    else OrderType.MARKET
+                ),
                 quantity=quantity,
+                limit_price=(
+                    self._extract_price_from_reason(signal.reason)
+                    if self.order_mode == "limit" and signal.side != SignalSide.FLAT
+                    else None
+                ),
             )
             for signal in signals
         ]
@@ -151,6 +162,11 @@ class RBreaker(StrategyBase):
             self._touched_sell_setup = True
         if low <= levels["buy_setup"]:
             self._touched_buy_setup = True
+
+    @staticmethod
+    def _extract_price_from_reason(reason: str) -> float | None:
+        match = re.search(r"[\d.]+", reason)
+        return float(match.group()) if match else None
 
     def _signal(self, timestamp: object, side: SignalSide, reason: str) -> SignalEvent:
         if isinstance(timestamp, pd.Timestamp):

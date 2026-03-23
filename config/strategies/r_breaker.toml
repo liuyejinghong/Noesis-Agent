@@ -7,6 +7,7 @@ status = "active"
 source_type = "built_in"
 
 [parameters]
+order_mode = "limit"
 pivot_mode = "rolling"
 rolling_bars = 16
 reverse_enabled = true
@@ -22,6 +23,7 @@ timeframes = ["15m", "1h"]
 lookback_days = 90
 
 [optimize.parameter_space]
+order_mode = ["market", "limit"]
 rolling_bars = [8, 16, 24, 48]
 reverse_enabled = [true, false]
 reverse_to_opposite = [true, false]

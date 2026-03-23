@@ -210,6 +210,7 @@ def test_configure_sets_params() -> None:
         make_config(
             pivot_mode="daily",
             rolling_bars=48,
+            order_mode="limit",
             reverse_enabled=False,
             reverse_to_opposite=True,
         )
@@ -217,21 +218,47 @@ def test_configure_sets_params() -> None:
 
     assert strategy.pivot_mode == "daily"
     assert strategy.rolling_bars == 48
+    assert strategy.order_mode == "limit"
     assert strategy.reverse_enabled is False
     assert strategy.reverse_to_opposite is True
     assert strategy.warmup_bars == 2
 
 
-def test_build_order_intents() -> None:
+def test_limit_order_mode() -> None:
     strategy = RBreaker()
-    config = make_config()
+    config = make_config(order_mode="limit")
+    strategy.configure(config)
     signals = [
         SignalEvent(
             strategy_id="r_breaker",
             symbol="BTCUSDT",
             side=SignalSide.LONG,
             timestamp=datetime.now(tz=UTC),
-            reason="breakout",
+            reason="突破买入线 95000.00",
+        )
+    ]
+
+    intents = strategy.build_order_intents(signals, config)
+
+    assert len(intents) == 1
+    assert intents[0].order_type is OrderType.LIMIT
+    assert intents[0].limit_price == 95000.0
+    assert intents[0].quantity == 0.25
+    assert intents[0].side is SignalSide.LONG
+    assert intents[0].symbol == "BTCUSDT"
+
+
+def test_market_order_mode() -> None:
+    strategy = RBreaker()
+    config = make_config()
+    strategy.configure(config)
+    signals = [
+        SignalEvent(
+            strategy_id="r_breaker",
+            symbol="BTCUSDT",
+            side=SignalSide.LONG,
+            timestamp=datetime.now(tz=UTC),
+            reason="突破买入线 95000.00",
         )
     ]
 
@@ -239,9 +266,31 @@ def test_build_order_intents() -> None:
 
     assert len(intents) == 1
     assert intents[0].order_type is OrderType.MARKET
+    assert intents[0].limit_price is None
     assert intents[0].quantity == 0.25
     assert intents[0].side is SignalSide.LONG
     assert intents[0].symbol == "BTCUSDT"
+
+
+def test_limit_order_mode_keeps_flat_exit_as_market() -> None:
+    strategy = RBreaker()
+    config = make_config(order_mode="limit")
+    strategy.configure(config)
+    signals = [
+        SignalEvent(
+            strategy_id="r_breaker",
+            symbol="BTCUSDT",
+            side=SignalSide.FLAT,
+            timestamp=datetime.now(tz=UTC),
+            reason="close < sell_enter 93000.00",
+        )
+    ]
+
+    intents = strategy.build_order_intents(signals, config)
+
+    assert len(intents) == 1
+    assert intents[0].order_type is OrderType.MARKET
+    assert intents[0].limit_price is None
 
 
 def test_strategy_registry() -> None:

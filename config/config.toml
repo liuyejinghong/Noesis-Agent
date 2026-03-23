@@ -23,3 +23,8 @@ model = "claude-sonnet-4-6"
 base_url = "https://api.aipaibox.com/v1"
 api_key_env = "AIPAIBOX_CLAUDE_API_KEY"
 output_format = "structured"
+
+[agent_roles.chat]
+model = "gpt-5.4"
+auth_type = "oauth_openai"
+output_format = "text"

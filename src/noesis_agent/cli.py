@@ -399,5 +399,226 @@ def data_collect(
     console.print(table)
 
 
+_MAX_HISTORY_MESSAGES = 50
+
+
+def _chat_welcome(session_name: str, model: str, history_count: int) -> None:
+    console.print()
+    console.print("[bold cyan]╭─────────────────────────────────────╮[/bold cyan]")
+    console.print("[bold cyan]│         Noesis Agent v0.2.0         │[/bold cyan]")
+    console.print("[bold cyan]╰─────────────────────────────────────╯[/bold cyan]")
+    console.print()
+    console.print(f"  [dim]模型:[/dim]  {model}")
+    console.print(f"  [dim]会话:[/dim]  {session_name}")
+    if history_count > 0:
+        console.print(f"  [dim]历史:[/dim]  已恢复 {history_count} 条消息")
+    console.print()
+    console.print("  [dim]/help 查看命令  |  /clear 清空历史  |  Esc+Enter 换行  |  exit 退出[/dim]")
+    console.print()
+
+
+def _handle_slash_command(cmd: str, bootstrap: AppBootstrap, session_store: object, session_name: str) -> bool:
+    parts = cmd.strip().split(maxsplit=1)
+    command = parts[0].lower()
+
+    if command == "/help":
+        console.print()
+        console.print("[bold]可用命令:[/bold]")
+        console.print("  [cyan]/status[/cyan]   — 查看系统状态（不经过 LLM）")
+        console.print("  [cyan]/config[/cyan]   — 查看风控配置")
+        console.print("  [cyan]/clear[/cyan]    — 清空当前会话历史")
+        console.print("  [cyan]/session[/cyan]  — 显示会话信息")
+        console.print("  [cyan]/sessions[/cyan] — 列出所有会话")
+        console.print("  [cyan]/help[/cyan]     — 显示此帮助")
+        console.print("  [cyan]exit[/cyan]      — 退出对话")
+        console.print()
+        return True
+
+    if command == "/status":
+        pending = bootstrap.proposal_manager.get_pending_approvals()
+        skills = bootstrap.skill_registry.list_skills()
+        console.print()
+        console.print(f"  运行模式: [green]{bootstrap.settings.mode.value}[/green]")
+        console.print(f"  交易品种: [green]{bootstrap.settings.symbol}[/green]")
+        console.print(f"  时间周期: [green]{bootstrap.settings.timeframe}[/green]")
+        console.print(f"  Agent 角色: [green]{', '.join(bootstrap.router.list_roles())}[/green]")
+        console.print(f"  已注册技能: [green]{len(skills)}[/green]")
+        console.print(f"  待审批提案: [green]{len(pending)}[/green]")
+        console.print()
+        return True
+
+    if command == "/config":
+        risk = bootstrap.settings.risk
+        console.print()
+        console.print(f"  最大仓位: [green]{risk.max_position_size}[/green]")
+        console.print(f"  最大杠杆: [green]{risk.max_leverage}[/green]")
+        console.print(f"  日亏损上限: [green]{risk.max_daily_loss_pct:.0%}[/green]")
+        console.print(f"  只读模式: [green]{risk.read_only}[/green]")
+        console.print()
+        return True
+
+    if command == "/clear":
+        return True
+
+    if command == "/session":
+        console.print(f"\n  当前会话: [cyan]{session_name}[/cyan]\n")
+        return True
+
+    if command == "/sessions":
+        from noesis_agent.agent.chat_session import ChatSessionStore
+
+        if isinstance(session_store, ChatSessionStore):
+            sessions = session_store.list_sessions()
+            if not sessions:
+                console.print("\n  [yellow]暂无会话[/yellow]\n")
+            else:
+                console.print()
+                for s in sessions:
+                    marker = " [cyan]◀[/cyan]" if s["session_id"] == session_name else ""
+                    console.print(f"  {s['session_id']} ({s['message_count']} 条消息){marker}")
+                console.print()
+        return True
+
+    console.print(f"  [yellow]未知命令: {command}（输入 /help 查看可用命令）[/yellow]")
+    return True
+
+
+async def _run_chat_stream(
+    agent: object,
+    user_input: str,
+    deps: object,
+    history: list[object],
+) -> tuple[str, list[object], bytes]:
+    from pydantic_ai.messages import ModelResponse, ToolCallPart
+
+    streamed_result = agent.run_stream(user_input, deps=deps, message_history=history)  # type: ignore[union-attr]
+    async with await streamed_result as result:
+        console.print()
+        console.print("[bold cyan]Noesis:[/bold cyan] ", end="")
+
+        collected_text = ""
+        async for chunk in result.stream_text(delta=True):
+            console.file.write(chunk)
+            console.file.flush()
+            collected_text += chunk
+
+        console.print()
+
+        for msg in result.new_messages():
+            if isinstance(msg, ModelResponse):
+                for part in msg.parts:
+                    if isinstance(part, ToolCallPart):
+                        console.print(f"  [dim]🔧 {part.tool_name}[/dim]")
+
+        all_messages = result.all_messages()
+        all_messages_json = result.all_messages_json()
+        console.print()
+        return collected_text, all_messages, all_messages_json
+
+
+@app.command(help="与 Noesis Agent 对话（REPL 或单轮）")
+def chat(
+    message: Annotated[str | None, typer.Argument(help="单轮消息，不传则进入 REPL 对话")] = None,
+    session: Annotated[str, typer.Option("--session", "-s", help="会话名")] = "default",
+    new_session: Annotated[bool, typer.Option("--new", help="忽略历史，开启新会话")] = False,
+    root_dir: Annotated[Path | None, typer.Option("--root-dir", help="项目根目录")] = None,
+    config: Annotated[Path | None, typer.Option("--config", "-c", help="配置文件路径")] = None,
+) -> None:
+    from pydantic import TypeAdapter
+    from pydantic_ai.messages import ModelMessage
+
+    from noesis_agent.agent.chat_session import ChatSessionStore
+    from noesis_agent.agent.roles.chat import ChatDeps, create_chat_agent
+
+    bootstrap = _get_app(root_dir, config)
+    agent = create_chat_agent(bootstrap.router, bootstrap)
+    deps = ChatDeps(bootstrap=bootstrap)
+    session_store = ChatSessionStore(bootstrap.app_context.state_dir / "chat_sessions")
+    message_adapter = TypeAdapter(list[ModelMessage])
+    model_name = bootstrap.router.get_model("chat")
+
+    history: list[ModelMessage] = []
+    if not new_session:
+        saved = session_store.load(session)
+        if saved is not None:
+            history = message_adapter.validate_json(saved)
+
+    if message is not None:
+        with console.status("[bold cyan]思考中...[/bold cyan]"):
+            result = asyncio.run(agent.run(message, deps=deps, message_history=history))
+        console.print(Markdown(result.output))
+        session_store.save(session, result.all_messages_json())
+        return
+
+    _chat_welcome(session, model_name, len(history))
+
+    from prompt_toolkit import PromptSession as PTSession
+    from prompt_toolkit.history import InMemoryHistory
+    from prompt_toolkit.key_binding import KeyBindings
+    from prompt_toolkit.key_binding.key_processor import KeyPressEvent
+
+    bindings = KeyBindings()
+
+    @bindings.add("escape", "enter")
+    def _newline(event: KeyPressEvent) -> None:
+        event.current_buffer.insert_text("\n")
+
+    pt_session = PTSession(history=InMemoryHistory(), key_bindings=bindings, multiline=False)
+
+    while True:
+        try:
+            user_input = pt_session.prompt("你: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            console.print("\n[dim]再见 👋[/dim]")
+            break
+
+        if not user_input:
+            continue
+        if user_input.lower() in ("exit", "quit", "q"):
+            console.print("[dim]再见 👋[/dim]")
+            break
+
+        if user_input.startswith("/"):
+            if user_input.strip().lower() == "/clear":
+                history = []
+                session_store.save(session, b"[]")
+                console.print("  [green]✓ 会话历史已清空[/green]\n")
+                continue
+            _handle_slash_command(user_input, bootstrap, session_store, session)
+            continue
+
+        try:
+            with console.status("[bold cyan]思考中...[/bold cyan]"):
+                result = asyncio.run(agent.run(user_input, deps=deps, message_history=history))
+            history = result.all_messages()
+            if len(history) > _MAX_HISTORY_MESSAGES:
+                history = history[-_MAX_HISTORY_MESSAGES:]
+            session_store.save(session, result.all_messages_json())
+            console.print()
+            console.print(Markdown(result.output))
+            console.print()
+        except KeyboardInterrupt:
+            console.print("\n[yellow]已中断[/yellow]\n")
+        except Exception as exc:
+            _handle_chat_error(exc)
+
+
+def _handle_chat_error(exc: Exception) -> None:
+    error_type = type(exc).__name__
+    msg = str(exc)
+
+    if "401" in msg or "unauthorized" in msg.lower() or "auth" in msg.lower():
+        console.print("[red]认证失败或已过期。[/red]")
+        console.print("[yellow]运行 `noesis login openai` 重新登录[/yellow]\n")
+    elif "timeout" in msg.lower() or "timed out" in msg.lower():
+        console.print("[red]请求超时，请稍后重试[/red]\n")
+    elif "connection" in msg.lower() or "network" in msg.lower():
+        console.print("[red]网络连接失败，请检查网络[/red]\n")
+    elif "rate" in msg.lower() and "limit" in msg.lower():
+        console.print("[red]请求频率超限，请稍后重试[/red]\n")
+    else:
+        console.print(f"[red]错误 ({error_type}): {msg}[/red]\n")
+
+
 def main() -> None:
     app()

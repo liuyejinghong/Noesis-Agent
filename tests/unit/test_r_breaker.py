@@ -1,4 +1,4 @@
-# pyright: reportMissingTypeStubs=false, reportPrivateUsage=false, reportUnusedCallResult=false
+# pyright: reportMissingTypeStubs=false, reportPrivateUsage=false, reportUnusedCallResult=false, reportAny=false, reportCallIssue=false, reportArgumentType=false
 
 from __future__ import annotations
 

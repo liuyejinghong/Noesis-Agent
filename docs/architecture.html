@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Noesis Agent 系统架构</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #0a0e17; color: #e0e6f0; padding: 40px 20px; }
+.container { max-width: 1100px; margin: 0 auto; }
+h1 { text-align: center; font-size: 28px; font-weight: 600; margin-bottom: 8px; color: #fff; letter-spacing: 2px; }
+.subtitle { text-align: center; font-size: 14px; color: #6b7a99; margin-bottom: 40px; }
+
+.layer { margin-bottom: 12px; position: relative; }
+.layer-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase;
+  color: #3d4f6f; margin-bottom: 8px; padding-left: 4px;
+}
+.layer-box {
+  border: 1px solid #1e2a42; border-radius: 12px; padding: 20px;
+  background: linear-gradient(135deg, #0d1320 0%, #111827 100%);
+}
+.layer-box.highlight { border-color: #2563eb44; }
+
+.row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.card {
+  background: #151d2e; border: 1px solid #1e2a42; border-radius: 8px;
+  padding: 14px 16px; min-width: 140px; flex: 1;
+}
+.card.accent-blue { border-left: 3px solid #3b82f6; }
+.card.accent-green { border-left: 3px solid #22c55e; }
+.card.accent-purple { border-left: 3px solid #a855f7; }
+.card.accent-orange { border-left: 3px solid #f97316; }
+.card.accent-cyan { border-left: 3px solid #06b6d4; }
+.card.accent-rose { border-left: 3px solid #f43f5e; }
+.card.accent-amber { border-left: 3px solid #f59e0b; }
+.card.accent-gray { border-left: 3px solid #6b7280; }
+.card .title { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 6px; }
+.card .model-tag { font-size: 11px; color: #818cf8; margin-bottom: 4px; }
+.card .desc { font-size: 12px; color: #8896b3; line-height: 1.6; }
+.card .desc li { margin-left: 12px; list-style: disc; }
+
+.connector { text-align: center; padding: 6px 0; color: #2d3a52; font-size: 18px; }
+.connector span { display: inline-block; animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+.agents-row { display: flex; gap: 12px; justify-content: center; }
+.agent-card {
+  background: linear-gradient(180deg, #151d2e 0%, #1a2236 100%);
+  border: 1px solid #1e2a42; border-radius: 10px; padding: 16px;
+  flex: 1; max-width: 220px; text-align: center;
+}
+.agent-card .icon { font-size: 28px; margin-bottom: 8px; }
+.agent-card .name { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 4px; }
+.agent-card .model { font-size: 12px; color: #818cf8; margin-bottom: 8px; }
+.agent-card .output { font-size: 11px; color: #6b7a99; background: #0d1320; border-radius: 4px; padding: 4px 8px; display: inline-block; }
+
+.gate-bar {
+  display: flex; gap: 8px; justify-content: center; padding: 12px 0;
+}
+.gate {
+  background: #151d2e; border: 1px solid #1e2a42; border-radius: 6px;
+  padding: 8px 12px; font-size: 11px; color: #8896b3; text-align: center; min-width: 100px;
+}
+.gate .num { font-size: 16px; font-weight: 700; color: #22c55e; }
+.gate .label { margin-top: 2px; }
+
+.bottom-row { display: flex; gap: 12px; margin-top: 12px; }
+.bottom-card {
+  background: #0d1320; border: 1px solid #1e2a42; border-radius: 8px;
+  padding: 14px; flex: 1;
+}
+.bottom-card .title { font-size: 13px; font-weight: 600; color: #94a3b8; margin-bottom: 6px; }
+.bottom-card .items { font-size: 12px; color: #6b7a99; line-height: 1.8; }
+
+.models-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+.model-chip {
+  background: #0d1320; border: 1px solid #1e2a42; border-radius: 6px;
+  padding: 8px 10px; font-size: 12px; text-align: center;
+}
+.model-chip .name { color: #e0e6f0; font-weight: 500; }
+.model-chip .provider { color: #6b7a99; font-size: 10px; }
+.model-chip .cost { font-size: 10px; margin-top: 2px; }
+.cost-free { color: #22c55e; }
+.cost-low { color: #f59e0b; }
+.cost-high { color: #f43f5e; }
+
+.flow-arrow { text-align: center; color: #3b82f6; font-size: 13px; padding: 4px 0; opacity: 0.6; }
+
+.footer { text-align: center; margin-top: 30px; font-size: 11px; color: #3d4f6f; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Noesis Agent</h1>
+<p class="subtitle">AI 驱动的加密货币策略研究与自适应进化系统</p>
+
+<!-- CLI Layer -->
+<div class="layer">
+  <div class="layer-label">命令行界面</div>
+  <div class="layer-box">
+    <div class="row">
+      <div class="card accent-blue">
+        <div class="title">核心命令</div>
+        <div class="desc">analyze · propose · validate · cycle</div>
+      </div>
+      <div class="card accent-green">
+        <div class="title">审批管理</div>
+        <div class="desc">approve · reject · status · proposals</div>
+      </div>
+      <div class="card accent-purple">
+        <div class="title">模型管理</div>
+        <div class="desc">models list · models test · login openai</div>
+      </div>
+      <div class="card accent-cyan">
+        <div class="title">Prompt 管理</div>
+        <div class="desc">prompts list · prompts show · config show</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="connector"><span>▼</span></div>
+
+<!-- Orchestration Layer -->
+<div class="layer">
+  <div class="layer-label">调度与编排</div>
+  <div class="layer-box highlight">
+    <div class="row">
+      <div class="card accent-orange" style="flex:2">
+        <div class="title">月度批量协调器</div>
+        <div class="desc">调度器心跳触发 → 加载所有 active 策略 → 逐策略运行量化研究 + AI 闭环 → 通知人审批</div>
+      </div>
+      <div class="card accent-gray">
+        <div class="title">策略目录</div>
+        <div class="desc">
+          <li>自动发现策略</li>
+          <li>多策略并行管理</li>
+          <li>运行去重保护</li>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="connector"><span>▼</span></div>
+
+<!-- Agent Layer -->
+<div class="layer">
+  <div class="layer-label">AI Agent 层</div>
+  <div class="layer-box highlight">
+
+    <!-- Three Agents -->
+    <div class="agents-row">
+      <div class="agent-card" style="border-color: #3b82f644;">
+        <div class="icon">🔍</div>
+        <div class="name">策略分析师</div>
+        <div class="model">Claude Opus 4.6</div>
+        <div class="desc" style="font-size:12px; color:#8896b3; margin-bottom:8px;">
+          读交易记录 + 市场数据<br>诊断策略强项与弱点
+        </div>
+        <div class="output">→ 分析报告</div>
+      </div>
+      <div class="agent-card" style="border-color: #22c55e44;">
+        <div class="icon">💡</div>
+        <div class="name">策略改进师</div>
+        <div class="model">GPT-5.4</div>
+        <div class="desc" style="font-size:12px; color:#8896b3; margin-bottom:8px;">
+          基于分析提出改进提案<br>参数调整 / 代码变更
+        </div>
+        <div class="output">→ 改进提案</div>
+      </div>
+      <div class="agent-card" style="border-color: #a855f744;">
+        <div class="icon">✅</div>
+        <div class="name">提案验证员</div>
+        <div class="model">Claude Sonnet 4.6</div>
+        <div class="desc" style="font-size:12px; color:#8896b3; margin-bottom:8px;">
+          回测对比 + Walk-forward<br>客观评估改进效果
+        </div>
+        <div class="output">→ 验证报告</div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">分析 → 提案 → 验证 → 门控</div>
+
+    <!-- Gates -->
+    <div class="gate-bar">
+      <div class="gate"><div class="num">①</div><div class="label">失败记忆</div></div>
+      <div class="gate"><div class="num">②</div><div class="label">回测对比</div></div>
+      <div class="gate"><div class="num">③</div><div class="label">样本外验证</div></div>
+      <div class="gate"><div class="num">④</div><div class="label">测试网时长</div></div>
+      <div class="gate"><div class="num">⑤</div><div class="label">测试网表现</div></div>
+      <div class="gate" style="border-color: #f59e0b44;"><div class="num" style="color:#f59e0b;">👤</div><div class="label">人工审批</div></div>
+    </div>
+
+    <!-- Supporting Systems -->
+    <div class="bottom-row">
+      <div class="bottom-card">
+        <div class="title">📝 记忆系统 (SQLite + FTS5)</div>
+        <div class="items">
+          知识库 · 失败记录 · 暂存区<br>
+          全文搜索 · 相似案例检索<br>
+          系统不会忘记犯过的错
+        </div>
+      </div>
+      <div class="bottom-card">
+        <div class="title">📋 Prompt 版本管理</div>
+        <div class="items">
+          每个 Agent 独立目录<br>
+          v1.md + meta.toml<br>
+          版本可切换、可回滚
+        </div>
+      </div>
+      <div class="bottom-card">
+        <div class="title">⚖️ 提案状态机</div>
+        <div class="items">
+          草稿 → 门控1-3 → 人工审批<br>
+          → 测试网 → 门控4-5<br>
+          → 实盘审批 → 实盘 → 毕业/回滚
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="connector"><span>▼</span></div>
+
+<!-- Quant Layer -->
+<div class="layer">
+  <div class="layer-label">量化研究层（演进中）</div>
+  <div class="layer-box">
+    <div class="row">
+      <div class="card accent-cyan">
+        <div class="title">因子库</div>
+        <div class="desc">
+          <li>动量 / 波动率</li>
+          <li>成交量 / 资金费率</li>
+          <li>持仓量 / 多空比</li>
+        </div>
+      </div>
+      <div class="card accent-purple">
+        <div class="title">因子分析</div>
+        <div class="desc">
+          <li>IC / IR 评估</li>
+          <li>稳定性 / 换手率</li>
+          <li>分组回测验证</li>
+        </div>
+      </div>
+      <div class="card accent-green">
+        <div class="title">市场环境分类器</div>
+        <div class="desc">
+          <li>ATR + 均线斜率</li>
+          <li>方向效率计算</li>
+          <li>趋势/震荡/高波动</li>
+        </div>
+      </div>
+      <div class="card accent-orange">
+        <div class="title">GP 因子挖掘</div>
+        <div class="desc">
+          <li>遗传算法搜索</li>
+          <li>自动发现因子</li>
+          <li>异步运行</li>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="connector"><span>▼</span></div>
+
+<!-- Model Layer -->
+<div class="layer">
+  <div class="layer-label">模型层</div>
+  <div class="layer-box">
+    <div class="row">
+      <div class="card accent-blue" style="flex:2">
+        <div class="title">模型路由 · 3 种接入方式</div>
+        <div class="models-grid">
+          <div class="model-chip">
+            <div class="name">Claude Opus 4.6</div>
+            <div class="provider">中转站</div>
+            <div class="cost cost-high">$$</div>
+          </div>
+          <div class="model-chip">
+            <div class="name">Claude Sonnet 4.6</div>
+            <div class="provider">中转站</div>
+            <div class="cost cost-low">$</div>
+          </div>
+          <div class="model-chip">
+            <div class="name">GPT-5.4</div>
+            <div class="provider">OAuth</div>
+            <div class="cost cost-free">免费</div>
+          </div>
+          <div class="model-chip">
+            <div class="name">GPT-5.2</div>
+            <div class="provider">OAuth</div>
+            <div class="cost cost-free">免费</div>
+          </div>
+          <div class="model-chip">
+            <div class="name">Gemini 3.1 Pro</div>
+            <div class="provider">中转站</div>
+            <div class="cost cost-low">$</div>
+          </div>
+          <div class="model-chip">
+            <div class="name">Gemini 3 Flash</div>
+            <div class="provider">中转站</div>
+            <div class="cost cost-free">¢</div>
+          </div>
+        </div>
+      </div>
+      <div class="card accent-rose">
+        <div class="title">认证层</div>
+        <div class="desc">
+          <li>OpenAI OAuth PKCE</li>
+          <li>ChatGPT Plus 订阅</li>
+          <li>Token 自动刷新</li>
+          <li>Codex API 适配</li>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="connector"><span>▼</span></div>
+
+<!-- Engine + Strategy Layer -->
+<div class="layer">
+  <div class="layer-label">引擎层 · 策略层</div>
+  <div class="layer-box">
+    <div class="row">
+      <div class="card accent-amber">
+        <div class="title">回测引擎</div>
+        <div class="desc">
+          <li>止损 / 止盈 / 追踪止损</li>
+          <li>最大持仓 / 冷却期</li>
+          <li>Maker/Taker 分离费率</li>
+        </div>
+      </div>
+      <div class="card accent-green">
+        <div class="title">优化引擎</div>
+        <div class="desc">
+          <li>网格搜索 / 随机搜索</li>
+          <li>收益↑ 回撤↓ 排序</li>
+          <li>Walk-forward 验证</li>
+        </div>
+      </div>
+      <div class="card accent-blue">
+        <div class="title">R-Breaker 策略</div>
+        <div class="desc">
+          <li>日线 / 滚动窗口 Pivot</li>
+          <li>市价单 / 限价单模式</li>
+          <li>突破 + 反转规则</li>
+        </div>
+      </div>
+      <div class="card accent-gray">
+        <div class="title">策略注册表</div>
+        <div class="desc">
+          <li>按 ID 自动发现</li>
+          <li>插件式加载</li>
+          <li>可扩展新策略</li>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="connector"><span>▼</span></div>
+
+<!-- Data Layer -->
+<div class="layer">
+  <div class="layer-label">数据层</div>
+  <div class="layer-box">
+    <div class="row">
+      <div class="card accent-cyan">
+        <div class="title">数据适配器 Protocol</div>
+        <div class="desc">
+          标准 5 列 OHLCV + UTC 时间索引<br>
+          Binance 合约 / 现货适配器<br>
+          httpx + 自动分页
+        </div>
+      </div>
+      <div class="card accent-purple">
+        <div class="title">数据存储</div>
+        <div class="desc">
+          <li>Parquet 列式存储</li>
+          <li>市场数据 / 因子缓存 / 快照</li>
+          <li>定期采集（OI/多空比）</li>
+        </div>
+      </div>
+      <div class="card accent-orange">
+        <div class="title">数据源</div>
+        <div class="desc">
+          <li>Binance 公开 API (11个端点)</li>
+          <li>K线 / 资金费率 / 持仓量</li>
+          <li>多空比 / 主动买卖比</li>
+          <li>链上数据（规划中）</li>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  Noesis Agent — 以真实交易反馈为燃料、以 AI 假设生成和验证闭环为核心的持续适应系统<br>
+  251 Tests · 66 Commits · Python 3.11+ · PydanticAI · SQLite + FTS5
+</div>
+
+</div>
+</body>
+</html>

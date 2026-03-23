@@ -56,6 +56,23 @@ def make_breakout_frame(current_close: float) -> pd.DataFrame:
     )
 
 
+def make_choppy_breakout_frame(current_close: float = 131.0) -> pd.DataFrame:
+    index = pd.date_range("2025-01-01", periods=24, freq="15min", tz="UTC")
+    close = [100.0 if idx % 2 == 0 else 101.0 for idx in range(23)] + [current_close]
+    high = [110.0] * 23 + [current_close + 1.0]
+    low = [90.0] * 23 + [current_close - 1.0]
+    return pd.DataFrame(
+        {
+            "open": close,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": [1000.0] * 24,
+        },
+        index=index,
+    )
+
+
 def test_levels_from_hlc() -> None:
     levels = RBreaker._levels_from_hlc(110.0, 90.0, 100.0)
 
@@ -130,6 +147,30 @@ def test_breakout_short() -> None:
     signals = strategy.on_bar(make_breakout_frame(69.0), position=None, account=None)
 
     assert [signal.side for signal in signals] == [SignalSide.SHORT]
+
+
+def test_factor_filters_block_signals_when_direction_efficiency_is_below_min() -> None:
+    strategy = RBreaker()
+    strategy.configure(
+        make_config(
+            pivot_mode="rolling",
+            rolling_bars=3,
+            factor_filters={"direction_eff_20": {"min": 0.8}},
+        )
+    )
+
+    signals = strategy.on_bar(make_choppy_breakout_frame(), position=None, account=None)
+
+    assert signals == []
+
+
+def test_no_factor_filters_preserves_existing_breakout_behavior() -> None:
+    strategy = RBreaker()
+    strategy.configure(make_config(pivot_mode="rolling", rolling_bars=3))
+
+    signals = strategy.on_bar(make_choppy_breakout_frame(), position=None, account=None)
+
+    assert [signal.side for signal in signals] == [SignalSide.LONG]
 
 
 def test_no_signal_in_range() -> None:

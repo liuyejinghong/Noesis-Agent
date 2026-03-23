@@ -13,6 +13,9 @@ rolling_bars = 16
 reverse_enabled = true
 reverse_to_opposite = false
 
+[parameters.factor_filters.direction_eff_20]
+min = 0.15
+
 [trade_management]
 stop_loss_pct = 0.03
 take_profit_pct = 0.06

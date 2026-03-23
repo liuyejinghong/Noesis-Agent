@@ -31,6 +31,7 @@ class RBreaker(StrategyBase):
         self.order_mode = str(params.get("order_mode", "market"))
         self.reverse_enabled = bool(params.get("reverse_enabled", True))
         self.reverse_to_opposite = bool(params.get("reverse_to_opposite", False))
+        self.factor_filters = dict(params.get("factor_filters", {}))
         self.warmup_bars = max(
             self.warmup_bars,
             self.rolling_bars + 1 if self.pivot_mode == "rolling" else 2,
@@ -48,6 +49,9 @@ class RBreaker(StrategyBase):
     ) -> list[SignalEvent]:
         del account
         if len(data) < self.warmup_bars:
+            return []
+
+        if self.factor_filters and not self._check_factor_filters(data):
             return []
 
         levels = self._compute_levels(data)
@@ -116,6 +120,24 @@ class RBreaker(StrategyBase):
         if self.pivot_mode == "rolling":
             return self._compute_rolling_levels(data)
         return self._compute_daily_levels(data)
+
+    def _check_factor_filters(self, data: pd.DataFrame) -> bool:
+        from noesis_agent.quant.factors.compute import create_default_registry
+
+        registry = create_default_registry()
+        for factor_id, conditions in self.factor_filters.items():
+            try:
+                values = registry.compute(factor_id, data)
+                current = values.iloc[-1]
+                if pd.isna(current):
+                    return False
+                if "min" in conditions and current < conditions["min"]:
+                    return False
+                if "max" in conditions and current > conditions["max"]:
+                    return False
+            except Exception:
+                return False
+        return True
 
     def _compute_rolling_levels(self, data: pd.DataFrame) -> dict[str, float] | None:
         if len(data) < self.rolling_bars + 1:

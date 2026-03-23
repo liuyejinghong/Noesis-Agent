@@ -26,7 +26,7 @@ tier = "mid"
 capabilities = ["analysis", "reasoning", "code", "chinese"]
 cost = "$"
 
-[models.gemini-3.1-pro-high]
+[models."gemini-3.1-pro-high"]
 provider = "gemini_relay"
 tier = "mid"
 capabilities = ["analysis", "reasoning"]
@@ -38,13 +38,13 @@ tier = "low"
 capabilities = ["formatting", "summarization"]
 cost = "c"
 
-[models.gpt-5.2]
+[models."gpt-5.2"]
 provider = "gpt_oauth"
 tier = "high"
 capabilities = ["reasoning", "code", "analysis"]
 cost = "free"
 
-[models.gpt-5.1]
+[models."gpt-5.1"]
 provider = "gpt_oauth"
 tier = "mid"
 capabilities = ["reasoning", "code", "analysis"]

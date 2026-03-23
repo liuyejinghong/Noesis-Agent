@@ -102,7 +102,18 @@ class AgentOrchestrator:
 
     async def _run_analysis_with_record(self, *, strategy_id: str, period: str) -> tuple[AnalysisReport, int]:
         agent = create_analyst_agent(self.router)
-        prompt = f"分析策略 {strategy_id} 在 {period} 的表现，并生成结构化报告"
+
+        context_parts = [f"分析策略 {strategy_id} 在 {period} 的表现，并生成结构化报告。"]
+
+        reports = self.memory.get_reports(period=period)
+        if not reports:
+            reports = self.memory.search_similar(f"{strategy_id} {period}", top_k=5)
+        if reports:
+            context_parts.append("\n以下是可用的回测数据和历史记录：\n")
+            for r in reports[:5]:
+                context_parts.append(f"--- {r.title} ---\n{r.content}\n")
+
+        prompt = "\n".join(context_parts)
         result = await agent.run(prompt, deps=self._analyst_deps())
         report = result.output.model_copy(update={"strategy_id": strategy_id, "period": period})
         record_id = self.memory.store(self._analysis_record(report))
@@ -112,7 +123,12 @@ class AgentOrchestrator:
         self, *, analysis_report: AnalysisReport, report_id: int
     ) -> tuple[Proposal, int]:
         agent = create_proposer_agent(self.router)
-        prompt = f"基于分析报告为策略 {analysis_report.strategy_id} 生成一个改进提案"
+        analysis_json = analysis_report.model_dump_json(indent=2)
+        prompt = (
+            f"基于以下分析报告为策略 {analysis_report.strategy_id} 生成一个改进提案。\n\n"
+            f"分析报告内容：\n{analysis_json}\n\n"
+            f"请针对报告中发现的问题提出具体、可回测验证的改进方案。"
+        )
         result = await agent.run(prompt, deps=self._proposer_deps())
         proposal = result.output.model_copy(
             update={

@@ -68,7 +68,16 @@ class ModelRouter:
 
         kwargs: dict[str, Any] = {}
         if output_type is not None:
-            kwargs["output_type"] = output_type
+            if config.output_mode == "native":
+                from pydantic_ai._output import NativeOutput
+
+                kwargs["output_type"] = NativeOutput(output_type)
+            elif config.output_mode == "prompted":
+                from pydantic_ai._output import PromptedOutput
+
+                kwargs["output_type"] = PromptedOutput(output_type)
+            else:
+                kwargs["output_type"] = output_type
         if deps_type is not None:
             kwargs["deps_type"] = deps_type
 

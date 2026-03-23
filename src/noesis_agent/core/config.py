@@ -133,6 +133,7 @@ class AgentRoleConfig(BaseModel):
     base_url: str | None = None
     api_key_env: str | None = None
     auth_type: str | None = None
+    output_mode: str = "auto"  # auto | tool | native | prompted
     system_prompt: str = ""
     tools: list[str] = Field(default_factory=list)
     output_format: str = "text"

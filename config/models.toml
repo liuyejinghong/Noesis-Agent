@@ -31,14 +31,14 @@ provider = "gemini_relay"
 tier = "mid"
 capabilities = ["analysis", "reasoning"]
 cost = "$"
-known_issues = "tool calling broken via relay: max_tokens causes empty response"
+output_mode = "prompted"
 
 [models.gemini-3-flash]
 provider = "gemini_relay"
 tier = "low"
-capabilities = ["formatting", "summarization"]
+capabilities = ["formatting", "summarization", "analysis"]
 cost = "c"
-known_issues = "tool calling broken via relay: text-only tasks work fine"
+output_mode = "prompted"
 
 [models."gpt-5.4"]
 provider = "gpt_oauth"

@@ -9,6 +9,8 @@ from typer.testing import CliRunner
 
 from noesis_agent.cli import app
 from noesis_agent.core.model_registry import ModelInfo, ModelTestResult, ProviderInfo
+from noesis_agent.orchestration.monthly_batch import BatchResult
+from noesis_agent.orchestration.strategy_catalog import StrategySpec
 
 runner = CliRunner()
 
@@ -261,3 +263,32 @@ class TestCLIBasics:
         assert "数据采集结果" in result.output
         assert "BTCUSDT_funding_rate" in result.output
         assert "ETHUSDT_open_interest" in result.output
+
+    def test_batch_run_shows_strategy_count(self, monkeypatch: Any) -> None:
+        class FakeCatalog:
+            def list_active(self) -> list[StrategySpec]:
+                return [
+                    StrategySpec(strategy_id="btc_breakout", symbol="BTCUSDT", timeframe="1h"),
+                    StrategySpec(strategy_id="eth_reversion", symbol="ETHUSDT", timeframe="4h"),
+                ]
+
+        class FakeCoordinator:
+            async def run(self, period: str) -> BatchResult:
+                assert period == "2026-03"
+                return BatchResult(period=period)
+
+        class FakeBootstrap:
+            strategy_catalog = FakeCatalog()
+            batch_coordinator = FakeCoordinator()
+
+        def fake_get_app(_root_dir: Path | None = None, _config: Path | None = None) -> FakeBootstrap:
+            return FakeBootstrap()
+
+        monkeypatch.setattr("noesis_agent.cli._get_app", fake_get_app)
+
+        result = runner.invoke(app, ["batch", "run", "--period", "2026-03"])
+
+        assert result.exit_code == 0
+        assert "发现 2 个活跃策略" in result.output
+        assert "btc_breakout" in result.output
+        assert "eth_reversion" in result.output

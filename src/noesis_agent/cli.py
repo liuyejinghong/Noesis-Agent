@@ -20,11 +20,13 @@ app = typer.Typer(
     help="Noesis Agent - AI 驱动的加密货币策略研究与执行系统",
     no_args_is_help=True,
 )
+batch_app = typer.Typer(help="批量操作")
 config_app = typer.Typer(help="配置管理")
 data_app = typer.Typer(help="数据管理")
 login_app = typer.Typer(help="登录管理")
 models_app = typer.Typer(help="模型管理")
 prompts_app = typer.Typer(help="Prompt 版本管理")
+app.add_typer(batch_app, name="batch")
 app.add_typer(config_app, name="config")
 app.add_typer(data_app, name="data")
 app.add_typer(login_app, name="login")
@@ -132,6 +134,33 @@ def cycle(
     final_status = result.get("final_status", "unknown")
     rendered_status = final_status.value if isinstance(final_status, ProposalStatus) else str(final_status)
     console.print(f"  最终状态: {rendered_status}")
+
+
+@batch_app.command("run")
+def batch_run(
+    period: Annotated[str, typer.Option("--period", "-p", help="分析周期，如 2026-03")],
+    root_dir: Annotated[Path | None, typer.Option("--root-dir")] = None,
+    config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
+) -> None:
+    bootstrap = _get_app(root_dir, config)
+    strategies = bootstrap.strategy_catalog.list_active()
+    console.print(f"[bold]发现 {len(strategies)} 个活跃策略[/bold]")
+    for strategy in strategies:
+        console.print(f"  · {strategy.strategy_id} ({strategy.symbol} {strategy.timeframe})")
+
+    result = asyncio.run(bootstrap.batch_coordinator.run(period))
+
+    table = Table(title=f"月度批量结果 — {period}")
+    table.add_column("策略", style="cyan")
+    table.add_column("状态")
+    for strategy_id, entry in result.strategy_results.items():
+        raw_status = cast(object, entry.get("final_status", "unknown"))
+        status = raw_status.value if isinstance(raw_status, ProposalStatus) else str(raw_status)
+        table.add_row(strategy_id, f"[green]{status}[/green]")
+    for strategy_id, error in result.errors.items():
+        table.add_row(strategy_id, f"[red]{error}[/red]")
+    console.print(table)
+    console.print(f"\n成功: {result.succeeded}/{result.total}")
 
 
 @app.command(help="审批通过提案")

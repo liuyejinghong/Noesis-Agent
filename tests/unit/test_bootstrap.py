@@ -83,3 +83,13 @@ def test_app_bootstrap_initializes_alert_manager_and_logs_dir(tmp_path: Path) ->
 
     assert bootstrap.alert_manager.channel_count == 2
     assert (tmp_path / "logs").exists()
+
+
+def test_app_bootstrap_initializes_strategy_catalog_and_batch_coordinator(tmp_path: Path) -> None:
+    strategies_dir = tmp_path / "config" / "strategies"
+    strategies_dir.mkdir(parents=True)
+
+    bootstrap = AppBootstrap(root_dir=tmp_path)
+
+    assert bootstrap.strategy_catalog.list_active() == []
+    assert bootstrap.batch_coordinator is not None

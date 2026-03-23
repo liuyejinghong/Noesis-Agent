@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from noesis_agent.agent.memory.store import MemoryStore
@@ -10,7 +11,12 @@ from noesis_agent.agent.skills.registry import SkillRegistry
 from noesis_agent.core.config import NoesisSettings
 from noesis_agent.core.models import AppContext
 from noesis_agent.logging.alerts import AlertManager, ConsoleAlertChannel, LogAlertChannel
-from noesis_agent.logging.logger import setup_logging
+from noesis_agent.logging.logger import get_logger, setup_logging
+from noesis_agent.orchestration.monthly_batch import MonthlyBatchCoordinator
+from noesis_agent.orchestration.strategy_catalog import StrategyCatalog
+from noesis_agent.services.scheduler import NoesisScheduler
+
+_logger = get_logger("bootstrap")
 
 
 class AppBootstrap:
@@ -55,3 +61,20 @@ class AppBootstrap:
             skill_registry=self.skill_registry,
             prompts_dir=prompts_dir,
         )
+        self.strategy_catalog = StrategyCatalog(self.root_dir / "config" / "strategies")
+        self.batch_coordinator = MonthlyBatchCoordinator(self.strategy_catalog, self.orchestrator)
+        self.scheduler = NoesisScheduler()
+        self.scheduler.on_event("heartbeat", self._handle_heartbeat)
+
+    async def _handle_heartbeat(self, payload: dict[str, object]) -> None:
+        if payload.get("scope") != "monthly":
+            return
+
+        period = self._monthly_period_for(datetime.now(UTC))
+        _logger.info(f"Monthly heartbeat triggered batch run for period {period}")
+        _ = await self.batch_coordinator.run(period)
+
+    @staticmethod
+    def _monthly_period_for(current_time: datetime) -> str:
+        previous_month = current_time.replace(day=1) - timedelta(days=1)
+        return previous_month.strftime("%Y-%m")

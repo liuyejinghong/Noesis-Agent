@@ -11,6 +11,7 @@ from rich.table import Table
 from noesis_agent.agent.roles.types import AnalysisReport, ProposalStatus
 from noesis_agent.auth.openai_oauth import OpenAIAuthManager, openai_login
 from noesis_agent.bootstrap import AppBootstrap
+from noesis_agent.core.prompt_registry import PromptRegistry
 
 app = typer.Typer(
     name="noesis",
@@ -20,9 +21,11 @@ app = typer.Typer(
 config_app = typer.Typer(help="配置管理")
 login_app = typer.Typer(help="登录管理")
 models_app = typer.Typer(help="模型管理")
+prompts_app = typer.Typer(help="Prompt 版本管理")
 app.add_typer(config_app, name="config")
 app.add_typer(login_app, name="login")
 app.add_typer(models_app, name="models")
+app.add_typer(prompts_app, name="prompts")
 console = Console()
 
 
@@ -42,6 +45,11 @@ def _get_model_registry(root_dir: Path | None = None):
 
     root = root_dir or Path.cwd()
     return ModelRegistry(root / "config" / "models.toml")
+
+
+def _get_prompt_registry(root_dir: Path | None = None) -> PromptRegistry:
+    root = root_dir or Path.cwd()
+    return PromptRegistry(root / "config" / "prompts")
 
 
 @app.command(help="运行分析 Agent，生成策略分析报告")
@@ -194,6 +202,46 @@ def proposals(
     for record in records:
         table.add_row(str(record.id), record.title, record.status, record.created_at or "")
     console.print(table)
+
+
+@prompts_app.command("list", help="列出所有 Prompt 角色与激活版本")
+def prompts_list(
+    root_dir: Annotated[Path | None, typer.Option("--root-dir", help="项目根目录")] = None,
+) -> None:
+    registry = _get_prompt_registry(root_dir)
+    roles = registry.list_roles()
+    if not roles:
+        console.print("[yellow]暂无 Prompt 配置[/yellow]")
+        return
+
+    table = Table(title="Prompt Roles")
+    table.add_column("Role", style="cyan")
+    table.add_column("Active Version", style="green")
+    table.add_column("Versions")
+
+    for role in roles:
+        versions = registry.list_versions(role)
+        active_version = registry.load_prompt(role).version
+        table.add_row(role, active_version, ", ".join(item["version"] for item in versions))
+
+    console.print(table)
+
+
+@prompts_app.command("show", help="显示角色 Prompt 内容")
+def prompts_show(
+    role: Annotated[str, typer.Argument(help="角色名")],
+    version: Annotated[str | None, typer.Option("--version", help="指定版本")] = None,
+    root_dir: Annotated[Path | None, typer.Option("--root-dir", help="项目根目录")] = None,
+) -> None:
+    registry = _get_prompt_registry(root_dir)
+    try:
+        prompt = registry.load_prompt(role, version=version)
+    except FileNotFoundError as exc:
+        console.print(f"[red]✗ 读取 Prompt 失败: {exc}[/red]")
+        raise typer.Exit(code=1) from exc
+
+    console.print(f"[bold]{prompt.role} {prompt.version}[/bold]\n")
+    console.print(prompt.content)
 
 
 @models_app.command("list", help="列出所有可用模型")

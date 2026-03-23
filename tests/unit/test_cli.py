@@ -13,6 +13,17 @@ from noesis_agent.core.model_registry import ModelInfo, ModelTestResult, Provide
 runner = CliRunner()
 
 
+def write_prompt_files(base_dir: Path, *, role: str, content: str) -> Path:
+    role_dir = base_dir / "config" / "prompts" / role
+    role_dir.mkdir(parents=True)
+    (role_dir / "meta.toml").write_text(
+        'active_version = "v1"\n\n[[versions]]\nversion = "v1"\ndate = "2026-03-23"\nchangelog = "initial"\n',
+        encoding="utf-8",
+    )
+    (role_dir / "v1.md").write_text(content + "\n", encoding="utf-8")
+    return role_dir
+
+
 class TestCLIBasics:
     def test_help(self) -> None:
         result = runner.invoke(app, ["--help"])
@@ -129,3 +140,42 @@ class TestCLIBasics:
         assert "模型连通性测试" in result.output
         assert "claude-sonnet-4-6" in result.output
         assert "Missing env: CLAUDE_KEY" in result.output
+
+    def test_prompts_list_shows_roles_and_active_versions(self, tmp_path: Path) -> None:
+        _ = write_prompt_files(tmp_path, role="analyst", content="analyst prompt")
+        _ = write_prompt_files(tmp_path, role="proposer", content="proposer prompt")
+        _ = write_prompt_files(tmp_path, role="validator", content="validator prompt")
+
+        result = runner.invoke(app, ["prompts", "list", "--root-dir", str(tmp_path)])
+
+        assert result.exit_code == 0
+        assert "Prompt Roles" in result.output
+        assert "analyst" in result.output
+        assert "proposer" in result.output
+        assert "validator" in result.output
+        assert "v1" in result.output
+
+    def test_prompts_show_renders_header_and_markdown_body(self, tmp_path: Path) -> None:
+        _ = write_prompt_files(tmp_path, role="analyst", content="# Analyst Prompt\n\nBody")
+
+        result = runner.invoke(app, ["prompts", "show", "analyst", "--root-dir", str(tmp_path)])
+
+        assert result.exit_code == 0
+        assert "analyst v1" in result.output
+        assert "# Analyst Prompt" in result.output
+        assert "Body" in result.output
+
+    def test_prompts_show_supports_explicit_version(self, tmp_path: Path) -> None:
+        role_dir = write_prompt_files(tmp_path, role="analyst", content="active prompt")
+        (role_dir / "meta.toml").write_text(
+            'active_version = "v2"\n\n[[versions]]\nversion = "v1"\ndate = "2026-03-23"\nchangelog = "initial"\n\n[[versions]]\nversion = "v2"\ndate = "2026-03-24"\nchangelog = "updated"\n',
+            encoding="utf-8",
+        )
+        (role_dir / "v2.md").write_text("active prompt\n", encoding="utf-8")
+        (role_dir / "v1.md").write_text("legacy prompt\n", encoding="utf-8")
+
+        result = runner.invoke(app, ["prompts", "show", "analyst", "--version", "v1", "--root-dir", str(tmp_path)])
+
+        assert result.exit_code == 0
+        assert "analyst v1" in result.output
+        assert "legacy prompt" in result.output

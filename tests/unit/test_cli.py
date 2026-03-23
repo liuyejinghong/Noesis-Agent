@@ -162,7 +162,7 @@ class TestCLIBasics:
 
         assert result.exit_code == 0
         assert "analyst v1" in result.output
-        assert "# Analyst Prompt" in result.output
+        assert "Analyst Prompt" in result.output
         assert "Body" in result.output
 
     def test_prompts_show_supports_explicit_version(self, tmp_path: Path) -> None:

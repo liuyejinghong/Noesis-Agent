@@ -63,7 +63,16 @@ def test_app_bootstrap_loads_root_config_when_present(tmp_path: Path) -> None:
     assert bootstrap.router.list_roles() == ["analyst"]
 
 
-def test_app_bootstrap_sets_prompts_dir_on_orchestrator(tmp_path: Path) -> None:
+def test_app_bootstrap_leaves_prompts_dir_unset_when_prompt_files_are_missing(tmp_path: Path) -> None:
+    bootstrap = AppBootstrap(root_dir=tmp_path)
+
+    assert bootstrap.orchestrator.prompts_dir is None
+
+
+def test_app_bootstrap_sets_prompts_dir_when_prompt_files_exist(tmp_path: Path) -> None:
+    prompts_dir = tmp_path / "config" / "prompts" / "analyst"
+    prompts_dir.mkdir(parents=True)
+
     bootstrap = AppBootstrap(root_dir=tmp_path)
 
     assert bootstrap.orchestrator.prompts_dir == tmp_path / "config" / "prompts"

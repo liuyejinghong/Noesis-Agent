@@ -6,6 +6,7 @@ from typing import Annotated, cast
 
 import typer
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.table import Table
 
 from noesis_agent.agent.roles.types import AnalysisReport, ProposalStatus
@@ -241,7 +242,7 @@ def prompts_show(
         raise typer.Exit(code=1) from exc
 
     console.print(f"[bold]{prompt.role} {prompt.version}[/bold]\n")
-    console.print(prompt.content)
+    console.print(Markdown(prompt.content))
 
 
 @models_app.command("list", help="列出所有可用模型")

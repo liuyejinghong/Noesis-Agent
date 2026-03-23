@@ -21,10 +21,12 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 config_app = typer.Typer(help="配置管理")
+data_app = typer.Typer(help="数据管理")
 login_app = typer.Typer(help="登录管理")
 models_app = typer.Typer(help="模型管理")
 prompts_app = typer.Typer(help="Prompt 版本管理")
 app.add_typer(config_app, name="config")
+app.add_typer(data_app, name="data")
 app.add_typer(login_app, name="login")
 app.add_typer(models_app, name="models")
 app.add_typer(prompts_app, name="prompts")
@@ -345,6 +347,26 @@ def config_show(
     table.add_row("最大杠杆", str(bootstrap.settings.risk.max_leverage))
     table.add_row("日亏损上限", f"{bootstrap.settings.risk.max_daily_loss_pct:.0%}")
     table.add_row("只读模式", str(bootstrap.settings.risk.read_only))
+    console.print(table)
+
+
+@data_app.command("collect", help="采集 Binance 快照数据")
+def data_collect(
+    symbols: Annotated[str, typer.Option("--symbols", "-s", help="逗号分隔的交易对列表")] = "BTCUSDT,ETHUSDT",
+    root_dir: Annotated[Path | None, typer.Option("--root-dir", help="项目根目录")] = None,
+) -> None:
+    from noesis_agent.data.collector import BinanceDataCollector
+    from noesis_agent.data.storage import DataStore
+
+    store = DataStore((root_dir or Path.cwd()) / "data")
+    collector = BinanceDataCollector(store, symbols=[item.strip() for item in symbols.split(",") if item.strip()])
+    results = collector.collect_all()
+
+    table = Table(title="数据采集结果")
+    table.add_column("任务", style="cyan")
+    table.add_column("记录数", style="green", justify="right")
+    for name, count in sorted(results.items()):
+        table.add_row(name, str(count))
     console.print(table)
 
 

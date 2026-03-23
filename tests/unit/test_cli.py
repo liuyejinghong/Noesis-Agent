@@ -240,3 +240,24 @@ class TestCLIBasics:
         assert result.exit_code == 0
         assert "analyst v1" in result.output
         assert "legacy prompt" in result.output
+
+    def test_data_collect_runs_collector_and_renders_results(self, monkeypatch: Any, tmp_path: Path) -> None:
+        class FakeCollector:
+            def __init__(self, store: Any, symbols: list[str]) -> None:
+                self.store = store
+                self.symbols = symbols
+
+            def collect_all(self) -> dict[str, int]:
+                return {
+                    "BTCUSDT_funding_rate": 4,
+                    "ETHUSDT_open_interest": 2,
+                }
+
+        monkeypatch.setattr("noesis_agent.data.collector.BinanceDataCollector", FakeCollector)
+
+        result = runner.invoke(app, ["data", "collect", "--symbols", "BTCUSDT,ETHUSDT", "--root-dir", str(tmp_path)])
+
+        assert result.exit_code == 0
+        assert "数据采集结果" in result.output
+        assert "BTCUSDT_funding_rate" in result.output
+        assert "ETHUSDT_open_interest" in result.output

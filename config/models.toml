@@ -40,6 +40,20 @@ capabilities = ["formatting", "summarization"]
 cost = "c"
 known_issues = "tool calling broken via relay: text-only tasks work fine"
 
+[models."gpt-5.4"]
+provider = "gpt_oauth"
+tier = "high"
+capabilities = ["reasoning", "code", "analysis", "chinese"]
+cost = "free"
+notes = "hidden model - not in models list API but directly callable"
+
+[models."gpt-5.4-mini"]
+provider = "gpt_oauth"
+tier = "mid"
+capabilities = ["reasoning", "code", "analysis"]
+cost = "free"
+notes = "hidden model - not in models list API but directly callable"
+
 [models."gpt-5.2"]
 provider = "gpt_oauth"
 tier = "high"

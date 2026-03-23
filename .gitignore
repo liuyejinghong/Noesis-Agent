@@ -49,3 +49,4 @@ logs/
 .coverage
 htmlcov/
 state/
+data/

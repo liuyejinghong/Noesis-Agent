@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from typing import cast
 
 from noesis_agent.agent.memory.models import FailureRecord
 from noesis_agent.agent.memory.store import MemoryStore
 from noesis_agent.agent.orchestrator import AgentOrchestrator
 from noesis_agent.agent.proposal_manager import ProposalManager
-from noesis_agent.agent.roles.types import AnalysisReport, Proposal, ProposalStatus
+from noesis_agent.agent.roles.types import AnalysisReport, GateResult, Proposal, ProposalStatus
 from noesis_agent.agent.skills.registry import SkillRegistry
 from noesis_agent.core.config import AgentRoleConfig
 
@@ -72,10 +73,11 @@ def test_run_full_cycle_advances_to_pending_approval_when_gates_pass() -> None:
     orchestrator = make_orchestrator()
 
     result = asyncio.run(orchestrator.run_full_cycle(strategy_id="breakout_v1", period="2026-W12"))
+    gates = cast(list[GateResult], result["gates"])
 
     assert result["final_status"] is ProposalStatus.PENDING_APPROVAL
-    assert len(result["gates"]) == 3
-    assert all(gate.passed for gate in result["gates"])
+    assert len(gates) == 3
+    assert all(gate.passed for gate in gates)
 
 
 def test_run_full_cycle_rejects_when_failure_memory_matches() -> None:
@@ -90,9 +92,10 @@ def test_run_full_cycle_rejects_when_failure_memory_matches() -> None:
     )
 
     result = asyncio.run(orchestrator.run_full_cycle(strategy_id="breakout_v1", period="2026-W12"))
+    gates = cast(list[GateResult], result["gates"])
 
     assert result["final_status"] is ProposalStatus.REJECTED
-    assert result["gates"][0].passed is False
+    assert gates[0].passed is False
 
 
 def test_orchestrator_stores_prompts_dir(tmp_path: Path) -> None:

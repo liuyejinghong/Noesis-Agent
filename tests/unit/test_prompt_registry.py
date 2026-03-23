@@ -10,12 +10,23 @@ from noesis_agent.core.prompt_registry import PromptRegistry
 def write_prompt_fixture(base_dir: Path, *, role: str = "analyst") -> Path:
     role_dir = base_dir / role
     role_dir.mkdir(parents=True)
-    (role_dir / "meta.toml").write_text(
-        'active_version = "v2"\n\n[[versions]]\nversion = "v1"\ndate = "2026-03-23"\nchangelog = "initial"\n\n[[versions]]\nversion = "v2"\ndate = "2026-03-24"\nchangelog = "updated"\n',
+    meta_content = (
+        'active_version = "v2"\n\n'
+        "[[versions]]\n"
+        'version = "v1"\n'
+        'date = "2026-03-23"\n'
+        'changelog = "initial"\n\n'
+        "[[versions]]\n"
+        'version = "v2"\n'
+        'date = "2026-03-24"\n'
+        'changelog = "updated"\n'
+    )
+    _ = (role_dir / "meta.toml").write_text(
+        meta_content,
         encoding="utf-8",
     )
-    (role_dir / "v1.md").write_text("first prompt\n", encoding="utf-8")
-    (role_dir / "v2.md").write_text("second prompt\n", encoding="utf-8")
+    _ = (role_dir / "v1.md").write_text("first prompt\n", encoding="utf-8")
+    _ = (role_dir / "v2.md").write_text("second prompt\n", encoding="utf-8")
     return role_dir
 
 

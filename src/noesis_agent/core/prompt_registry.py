@@ -3,6 +3,7 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import cast
 
 
 @dataclass(frozen=True)
@@ -59,8 +60,10 @@ class PromptRegistry:
             raise FileNotFoundError(f"No meta.toml found for role: {role}")
         with meta_file.open("rb") as file_obj:
             data = tomllib.load(file_obj)
+        active_version = cast(str, data.get("active_version", "v1"))
+        versions = cast(list[dict[str, str]], data.get("versions", []))
         return PromptMeta(
             role=role,
-            active_version=data.get("active_version", "v1"),
-            versions=data.get("versions", []),
+            active_version=active_version,
+            versions=versions,
         )

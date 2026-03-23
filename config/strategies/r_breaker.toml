@@ -1,0 +1,27 @@
+strategy_id = "r_breaker"
+strategy_name = "R-Breaker"
+display_name = "R-Breaker"
+description = "R-Breaker breakout and reversal strategy for crypto markets."
+tags = ["r-breaker", "breakout", "reversal"]
+status = "active"
+source_type = "built_in"
+
+[parameters]
+pivot_mode = "rolling"
+rolling_bars = 96
+reverse_enabled = true
+reverse_to_opposite = false
+
+[trade_management]
+stop_loss_pct = 0.03
+take_profit_pct = 0.06
+
+[optimize]
+default_method = "grid"
+timeframes = ["15m", "1h"]
+lookback_days = 90
+
+[optimize.parameter_space]
+rolling_bars = [48, 96, 192]
+reverse_enabled = [true, false]
+reverse_to_opposite = [true, false]

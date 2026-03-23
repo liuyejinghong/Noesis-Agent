@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 from noesis_agent.agent.memory.models import FailureRecord
 from noesis_agent.agent.memory.store import MemoryStore
@@ -13,7 +14,7 @@ from noesis_agent.agent.skills.registry import SkillRegistry
 from noesis_agent.core.config import AgentRoleConfig
 
 
-def make_orchestrator() -> AgentOrchestrator:
+def make_orchestrator(prompts_dir: Path | None = None) -> AgentOrchestrator:
     from noesis_agent.agent.models import ModelRouter
 
     memory = MemoryStore(":memory:")
@@ -29,6 +30,7 @@ def make_orchestrator() -> AgentOrchestrator:
         memory=memory,
         proposal_manager=ProposalManager(memory),
         skill_registry=SkillRegistry(),
+        prompts_dir=prompts_dir,
     )
 
 
@@ -91,3 +93,9 @@ def test_run_full_cycle_rejects_when_failure_memory_matches() -> None:
 
     assert result["final_status"] is ProposalStatus.REJECTED
     assert result["gates"][0].passed is False
+
+
+def test_orchestrator_stores_prompts_dir(tmp_path: Path) -> None:
+    orchestrator = make_orchestrator(prompts_dir=tmp_path / "config" / "prompts")
+
+    assert orchestrator.prompts_dir == tmp_path / "config" / "prompts"

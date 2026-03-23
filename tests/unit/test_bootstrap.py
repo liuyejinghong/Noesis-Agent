@@ -61,3 +61,9 @@ def test_app_bootstrap_loads_root_config_when_present(tmp_path: Path) -> None:
     assert bootstrap.settings.timeframe == "1h"
     assert bootstrap.settings.risk.max_position_size == 0.02
     assert bootstrap.router.list_roles() == ["analyst"]
+
+
+def test_app_bootstrap_sets_prompts_dir_on_orchestrator(tmp_path: Path) -> None:
+    bootstrap = AppBootstrap(root_dir=tmp_path)
+
+    assert bootstrap.orchestrator.prompts_dir == tmp_path / "config" / "prompts"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from pydantic_ai import Agent, RunContext
 
@@ -10,6 +11,7 @@ from noesis_agent.agent.memory.store import MemoryStore
 from noesis_agent.agent.models import ModelRouter
 from noesis_agent.agent.roles.types import ValidationReport
 from noesis_agent.agent.skills.registry import SkillRegistry
+from noesis_agent.core.prompt_registry import PromptRegistry
 
 
 @dataclass
@@ -36,12 +38,21 @@ VALIDATOR_INSTRUCTIONS = """你是一个提案验证员。
 输出必须客观、数据驱动。"""
 
 
-def create_validator_agent(router: ModelRouter) -> Agent[ValidatorDeps, ValidationReport]:
+def create_validator_agent(
+    router: ModelRouter, prompts_dir: Path | None = None
+) -> Agent[ValidatorDeps, ValidationReport]:
     agent = router.create_agent("validator", output_type=ValidationReport, deps_type=ValidatorDeps)
+
+    if prompts_dir is not None:
+        registry = PromptRegistry(prompts_dir)
+        prompt = registry.load_prompt("validator")
+        instructions_text = prompt.content
+    else:
+        instructions_text = VALIDATOR_INSTRUCTIONS
 
     @agent.instructions
     def validator_instructions() -> str:
-        return VALIDATOR_INSTRUCTIONS
+        return instructions_text
 
     @agent.tool
     async def run_backtest_comparison(ctx: RunContext[ValidatorDeps], proposal_id: str, strategy_id: str) -> str:

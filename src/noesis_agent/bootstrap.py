@@ -40,9 +40,11 @@ class AppBootstrap:
         self.router = ModelRouter(self.settings.agent_roles)
         self.skill_registry = SkillRegistry()
         self.proposal_manager = ProposalManager(self.memory)
+        prompts_dir = self.root_dir / "config" / "prompts"
         self.orchestrator = AgentOrchestrator(
             router=self.router,
             memory=self.memory,
             proposal_manager=self.proposal_manager,
             skill_registry=self.skill_registry,
+            prompts_dir=prompts_dir,
         )

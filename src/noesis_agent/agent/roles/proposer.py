@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from pydantic_ai import Agent, RunContext
 
@@ -10,6 +11,7 @@ from noesis_agent.agent.memory.store import MemoryStore
 from noesis_agent.agent.models import ModelRouter
 from noesis_agent.agent.roles.types import Proposal
 from noesis_agent.agent.skills.registry import SkillRegistry
+from noesis_agent.core.prompt_registry import PromptRegistry
 
 
 @dataclass
@@ -35,12 +37,19 @@ PROPOSER_INSTRUCTIONS = """你是一个加密货币策略改进师。
 输出必须是中文。"""
 
 
-def create_proposer_agent(router: ModelRouter) -> Agent[ProposerDeps, Proposal]:
+def create_proposer_agent(router: ModelRouter, prompts_dir: Path | None = None) -> Agent[ProposerDeps, Proposal]:
     agent = router.create_agent("proposer", output_type=Proposal, deps_type=ProposerDeps)
+
+    if prompts_dir is not None:
+        registry = PromptRegistry(prompts_dir)
+        prompt = registry.load_prompt("proposer")
+        instructions_text = prompt.content
+    else:
+        instructions_text = PROPOSER_INSTRUCTIONS
 
     @agent.instructions
     def proposer_instructions() -> str:
-        return PROPOSER_INSTRUCTIONS
+        return instructions_text
 
     @agent.tool
     async def query_failure_memory(ctx: RunContext[ProposerDeps], strategy_id: str, change_type: str) -> str:

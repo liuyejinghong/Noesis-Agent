@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from noesis_agent.agent.gates import gate_1_failure_memory, gate_2_backtest_comparison, gate_3_walk_forward
@@ -23,11 +24,13 @@ class AgentOrchestrator:
         memory: MemoryStore,
         proposal_manager: ProposalManager,
         skill_registry: SkillRegistry,
+        prompts_dir: Path | None = None,
     ) -> None:
         self.router = router
         self.memory = memory
         self.proposal_manager = proposal_manager
         self.skill_registry = skill_registry
+        self.prompts_dir = prompts_dir
 
     async def run_analysis(self, strategy_id: str, period: str) -> AnalysisReport:
         report, _ = await self._run_analysis_with_record(strategy_id=strategy_id, period=period)
@@ -38,7 +41,7 @@ class AgentOrchestrator:
         return proposal
 
     async def run_validation(self, proposal: Proposal) -> ValidationReport:
-        agent = create_validator_agent(self.router)
+        agent = create_validator_agent(self.router, prompts_dir=self.prompts_dir)
         prompt = f"验证策略 {proposal.strategy_id} 的提案 {proposal.proposal_id}"
         result = await agent.run(prompt, deps=self._validator_deps())
         report = result.output
@@ -101,7 +104,7 @@ class AgentOrchestrator:
         }
 
     async def _run_analysis_with_record(self, *, strategy_id: str, period: str) -> tuple[AnalysisReport, int]:
-        agent = create_analyst_agent(self.router)
+        agent = create_analyst_agent(self.router, prompts_dir=self.prompts_dir)
 
         context_parts = [f"分析策略 {strategy_id} 在 {period} 的表现，并生成结构化报告。"]
 
@@ -122,7 +125,7 @@ class AgentOrchestrator:
     async def _run_proposal_with_record(
         self, *, analysis_report: AnalysisReport, report_id: int
     ) -> tuple[Proposal, int]:
-        agent = create_proposer_agent(self.router)
+        agent = create_proposer_agent(self.router, prompts_dir=self.prompts_dir)
         analysis_json = analysis_report.model_dump_json(indent=2)
         prompt = (
             f"基于以下分析报告为策略 {analysis_report.strategy_id} 生成一个改进提案。\n\n"

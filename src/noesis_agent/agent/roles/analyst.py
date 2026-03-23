@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from pydantic_ai import Agent, RunContext
 
@@ -10,6 +11,7 @@ from noesis_agent.agent.memory.store import MemoryStore
 from noesis_agent.agent.models import ModelRouter
 from noesis_agent.agent.roles.types import AnalysisReport
 from noesis_agent.agent.skills.registry import SkillRegistry
+from noesis_agent.core.prompt_registry import PromptRegistry
 
 
 @dataclass
@@ -39,12 +41,19 @@ ANALYST_INSTRUCTIONS = """你是一个加密货币策略分析师。
 输出必须是中文。用数据支撑每个观点。"""
 
 
-def create_analyst_agent(router: ModelRouter) -> Agent[AnalystDeps, AnalysisReport]:
+def create_analyst_agent(router: ModelRouter, prompts_dir: Path | None = None) -> Agent[AnalystDeps, AnalysisReport]:
     agent = router.create_agent("analyst", output_type=AnalysisReport, deps_type=AnalystDeps)
+
+    if prompts_dir is not None:
+        registry = PromptRegistry(prompts_dir)
+        prompt = registry.load_prompt("analyst")
+        instructions_text = prompt.content
+    else:
+        instructions_text = ANALYST_INSTRUCTIONS
 
     @agent.instructions
     def analyst_instructions() -> str:
-        return ANALYST_INSTRUCTIONS
+        return instructions_text
 
     @agent.tool
     async def get_trade_records(ctx: RunContext[AnalystDeps], period: str, strategy_id: str) -> str:

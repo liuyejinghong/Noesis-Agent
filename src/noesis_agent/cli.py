@@ -19,8 +19,10 @@ app = typer.Typer(
 )
 config_app = typer.Typer(help="配置管理")
 login_app = typer.Typer(help="登录管理")
+models_app = typer.Typer(help="模型管理")
 app.add_typer(config_app, name="config")
 app.add_typer(login_app, name="login")
+app.add_typer(models_app, name="models")
 console = Console()
 
 
@@ -33,6 +35,13 @@ def _load_analysis_report(bootstrap: AppBootstrap, report_id: int) -> AnalysisRe
     if record is None or record.category != "analysis_report":
         raise ValueError(f"Analysis report not found: {report_id}")
     return AnalysisReport.model_validate(record.metadata)
+
+
+def _get_model_registry(root_dir: Path | None = None):
+    from noesis_agent.core.model_registry import ModelRegistry
+
+    root = root_dir or Path.cwd()
+    return ModelRegistry(root / "config" / "models.toml")
 
 
 @app.command(help="运行分析 Agent，生成策略分析报告")
@@ -184,6 +193,52 @@ def proposals(
     table.add_column("创建时间")
     for record in records:
         table.add_row(str(record.id), record.title, record.status, record.created_at or "")
+    console.print(table)
+
+
+@models_app.command("list", help="列出所有可用模型")
+def models_list(
+    tier: Annotated[str | None, typer.Option("--tier", "-t", help="按等级过滤: high/mid/low")] = None,
+    root_dir: Annotated[Path | None, typer.Option("--root-dir")] = None,
+) -> None:
+    registry = _get_model_registry(root_dir)
+    models = registry.list_models(tier=tier)
+
+    table = Table(title="可用模型")
+    table.add_column("模型", style="cyan")
+    table.add_column("提供商")
+    table.add_column("等级", style="green")
+    table.add_column("能力")
+    table.add_column("成本")
+
+    for model in models:
+        provider = registry.providers.get(model.provider_id)
+        provider_name = provider.name if provider else "?"
+        table.add_row(model.model_id, provider_name, model.tier, ", ".join(model.capabilities), model.cost)
+
+    console.print(table)
+
+
+@models_app.command("test", help="测试模型连通性（最小 token 消耗）")
+def models_test(
+    model_id: Annotated[str | None, typer.Argument(help="测试指定模型，不指定则测试全部")] = None,
+    root_dir: Annotated[Path | None, typer.Option("--root-dir")] = None,
+) -> None:
+    registry = _get_model_registry(root_dir)
+    results = [registry.test_model(model_id)] if model_id else registry.test_all()
+
+    table = Table(title="模型连通性测试")
+    table.add_column("模型", style="cyan")
+    table.add_column("提供商")
+    table.add_column("状态")
+    table.add_column("延迟")
+    table.add_column("错误")
+
+    for result in results:
+        status = "[green]OK[/green]" if result.success else "[red]FAIL[/red]"
+        latency = f"{result.latency_ms:.0f}ms" if result.latency_ms > 0 else "-"
+        table.add_row(result.model_id, result.provider, status, latency, result.error)
+
     console.print(table)
 
 

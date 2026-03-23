@@ -64,6 +64,56 @@ class TestCLIBasics:
 
         assert result.exit_code == 1
 
+    def test_approve_logs_approval_action(self, monkeypatch: Any) -> None:
+        actions: list[tuple[str, int, str]] = []
+
+        class FakeProposalManager:
+            def advance_proposal(self, proposal_id: int, _status: Any, reason: str) -> None:
+                assert proposal_id == 7
+                assert reason == "人工审批通过"
+
+        class FakeBootstrap:
+            proposal_manager = FakeProposalManager()
+
+        def fake_get_app(_root_dir: Path | None = None, _config: Path | None = None) -> FakeBootstrap:
+            return FakeBootstrap()
+
+        def fake_log_approval_action(action: str, proposal_id: int, reason: str = "", _user: str = "system") -> None:
+            actions.append((action, proposal_id, reason))
+
+        monkeypatch.setattr("noesis_agent.cli._get_app", fake_get_app)
+        monkeypatch.setattr("noesis_agent.cli.log_approval_action", fake_log_approval_action)
+
+        result = runner.invoke(app, ["approve", "7"])
+
+        assert result.exit_code == 0
+        assert actions == [("approved", 7, "人工审批通过")]
+
+    def test_reject_logs_approval_action(self, monkeypatch: Any) -> None:
+        actions: list[tuple[str, int, str]] = []
+
+        class FakeProposalManager:
+            def reject_proposal(self, proposal_id: int, reason: str) -> None:
+                assert proposal_id == 8
+                assert reason == "risk"
+
+        class FakeBootstrap:
+            proposal_manager = FakeProposalManager()
+
+        def fake_get_app(_root_dir: Path | None = None, _config: Path | None = None) -> FakeBootstrap:
+            return FakeBootstrap()
+
+        def fake_log_approval_action(action: str, proposal_id: int, reason: str = "", _user: str = "system") -> None:
+            actions.append((action, proposal_id, reason))
+
+        monkeypatch.setattr("noesis_agent.cli._get_app", fake_get_app)
+        monkeypatch.setattr("noesis_agent.cli.log_approval_action", fake_log_approval_action)
+
+        result = runner.invoke(app, ["reject", "8", "--reason", "risk"])
+
+        assert result.exit_code == 0
+        assert actions == [("rejected", 8, "risk")]
+
     def test_login_status_shows_not_logged_in_when_token_missing(self, monkeypatch: Any) -> None:
         class FakeAuthManager:
             def load_tokens(self) -> None:

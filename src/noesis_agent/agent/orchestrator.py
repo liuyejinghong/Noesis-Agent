@@ -13,6 +13,7 @@ from noesis_agent.agent.roles.proposer import ProposerDeps, create_proposer_agen
 from noesis_agent.agent.roles.types import AnalysisReport, GateResult, Proposal, ProposalStatus, ValidationReport
 from noesis_agent.agent.roles.validator import ValidatorDeps, create_validator_agent
 from noesis_agent.agent.skills.registry import SkillRegistry
+from noesis_agent.logging.agent_tracer import trace_agent_call
 
 ALLOWED_CHANGE_TYPES = {"parameter", "code", "trade_management"}
 
@@ -43,7 +44,9 @@ class AgentOrchestrator:
     async def run_validation(self, proposal: Proposal) -> ValidationReport:
         agent = create_validator_agent(self.router, prompts_dir=self.prompts_dir)
         prompt = f"验证策略 {proposal.strategy_id} 的提案 {proposal.proposal_id}"
-        result = await agent.run(prompt, deps=self._validator_deps())
+        with trace_agent_call("validator", self.router.get_model("validator"), proposal.strategy_id) as trace_context:
+            result = await agent.run(prompt, deps=self._validator_deps())
+            self._update_trace_usage(trace_context, result)
         report = result.output
         return report.model_copy(update={"proposal_id": proposal.proposal_id})
 
@@ -117,7 +120,9 @@ class AgentOrchestrator:
                 context_parts.append(f"--- {r.title} ---\n{r.content}\n")
 
         prompt = "\n".join(context_parts)
-        result = await agent.run(prompt, deps=self._analyst_deps())
+        with trace_agent_call("analyst", self.router.get_model("analyst"), strategy_id) as trace_context:
+            result = await agent.run(prompt, deps=self._analyst_deps())
+            self._update_trace_usage(trace_context, result)
         report = result.output.model_copy(update={"strategy_id": strategy_id, "period": period})
         record_id = self.memory.store(self._analysis_record(report))
         return report, record_id
@@ -132,7 +137,11 @@ class AgentOrchestrator:
             f"分析报告内容：\n{analysis_json}\n\n"
             f"请针对报告中发现的问题提出具体、可回测验证的改进方案。"
         )
-        result = await agent.run(prompt, deps=self._proposer_deps())
+        with trace_agent_call(
+            "proposer", self.router.get_model("proposer"), analysis_report.strategy_id
+        ) as trace_context:
+            result = await agent.run(prompt, deps=self._proposer_deps())
+            self._update_trace_usage(trace_context, result)
         proposal = result.output.model_copy(
             update={
                 "strategy_id": analysis_report.strategy_id,
@@ -168,3 +177,15 @@ class AgentOrchestrator:
 
     def _validator_deps(self) -> ValidatorDeps:
         return ValidatorDeps(memory_store=self.memory, skill_registry=self.skill_registry)
+
+    @staticmethod
+    def _update_trace_usage(trace_context: dict[str, Any], result: object) -> None:
+        usage: object | None = getattr(result, "usage", None)
+        if usage is None:
+            return
+        prompt_tokens = getattr(usage, "prompt_tokens", None)
+        completion_tokens = getattr(usage, "completion_tokens", None)
+        if prompt_tokens is not None:
+            trace_context["prompt_tokens"] = prompt_tokens
+        if completion_tokens is not None:
+            trace_context["completion_tokens"] = completion_tokens

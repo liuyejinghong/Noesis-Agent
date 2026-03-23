@@ -13,6 +13,7 @@ from noesis_agent.agent.roles.types import AnalysisReport, ProposalStatus
 from noesis_agent.auth.openai_oauth import OpenAIAuthManager, openai_login
 from noesis_agent.bootstrap import AppBootstrap
 from noesis_agent.core.prompt_registry import PromptRegistry
+from noesis_agent.logging.agent_tracer import log_approval_action
 
 app = typer.Typer(
     name="noesis",
@@ -140,6 +141,7 @@ def approve(
     bootstrap = _get_app(root_dir, config)
     try:
         bootstrap.proposal_manager.advance_proposal(proposal_id, ProposalStatus.APPROVED, reason="人工审批通过")
+        log_approval_action("approved", proposal_id, reason="人工审批通过")
     except Exception as exc:
         console.print(f"[red]✗ 审批失败: {exc}[/red]")
         raise typer.Exit(code=1) from exc
@@ -157,6 +159,7 @@ def reject(
     bootstrap = _get_app(root_dir, config)
     try:
         bootstrap.proposal_manager.reject_proposal(proposal_id, reason=reason)
+        log_approval_action("rejected", proposal_id, reason=reason)
     except Exception as exc:
         console.print(f"[red]✗ 拒绝失败: {exc}[/red]")
         raise typer.Exit(code=1) from exc

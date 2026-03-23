@@ -34,6 +34,7 @@ dependencies = [
     "httpx>=0.28",
     "authlib>=1.4",
     "pandas>=2.2",
+    "pyarrow>=19",
     "TA-Lib>=0.6",
     "ccxt>=4.4",
     "apscheduler>=3.10",
@@ -53,3 +54,8 @@ line-length = 120
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "S", "B"]
 ignore = ["S101"]
+
+[dependency-groups]
+dev = [
+    "playwright>=1.58.0",
+]

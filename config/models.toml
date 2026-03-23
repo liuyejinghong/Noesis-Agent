@@ -44,30 +44,31 @@ known_issues = "tool calling broken via relay: text-only tasks work fine"
 provider = "gpt_oauth"
 tier = "high"
 capabilities = ["reasoning", "code", "analysis", "chinese"]
-cost = "free"
-notes = "hidden model - not in models list API but directly callable"
+cost = "plus_quota"
+notes = "hidden model - not in models list API but directly callable via Plus"
 
 [models."gpt-5.4-mini"]
 provider = "gpt_oauth"
 tier = "mid"
 capabilities = ["reasoning", "code", "analysis"]
-cost = "free"
-notes = "hidden model - not in models list API but directly callable"
+cost = "plus_quota"
+notes = "hidden model - not in models list API but directly callable via Plus"
 
 [models."gpt-5.2"]
 provider = "gpt_oauth"
 tier = "high"
 capabilities = ["reasoning", "code", "analysis"]
-cost = "free"
+cost = "plus_quota"
 
 [models."gpt-5.1"]
 provider = "gpt_oauth"
 tier = "mid"
 capabilities = ["reasoning", "code", "analysis"]
-cost = "free"
+cost = "plus_quota"
 
 [models.gpt-5]
 provider = "gpt_oauth"
 tier = "mid"
 capabilities = ["reasoning", "code"]
+cost = "plus_quota"
 cost = "free"

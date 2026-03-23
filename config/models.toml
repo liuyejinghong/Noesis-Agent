@@ -71,3 +71,65 @@ provider = "gpt_oauth"
 tier = "mid"
 capabilities = ["reasoning", "code"]
 cost = "plus_quota"
+
+# === 待配置 Provider（等用户提供 API key 后激活）===
+
+[providers.deepseek]
+name = "DeepSeek"
+type = "relay"
+base_url = "PENDING"
+api_key_env = "DEEPSEEK_API_KEY"
+status = "pending"
+
+[providers.kimi]
+name = "Kimi-Moonshot"
+type = "relay"
+base_url = "PENDING"
+api_key_env = "KIMI_API_KEY"
+status = "pending"
+
+[providers.glm]
+name = "GLM-ZhipuAI"
+type = "relay"
+base_url = "PENDING"
+api_key_env = "GLM_API_KEY"
+status = "pending"
+
+[providers.minimax]
+name = "MiniMax"
+type = "relay"
+base_url = "PENDING"
+api_key_env = "MINIMAX_API_KEY"
+status = "pending"
+
+[models.deepseek-r1]
+provider = "deepseek"
+tier = "high"
+capabilities = ["reasoning", "math", "code", "chinese"]
+cost = "$"
+notes = "推理最强，透明思维链，开源MIT可自部署，比o1便宜27x"
+status = "pending"
+
+[models."kimi-k2.5"]
+provider = "kimi"
+tier = "high"
+capabilities = ["reasoning", "analysis", "chinese", "long_context", "multimodal"]
+cost = "$"
+notes = "256K上下文，Agent Swarm 100并行agent，原生多模态读图，中文最佳"
+status = "pending"
+
+[models.glm-5]
+provider = "glm"
+tier = "high"
+capabilities = ["code", "reasoning", "analysis", "chinese"]
+cost = "$"
+notes = "SWE-bench开源第一77.8%，Terminal-Bench超Opus，MIT开源"
+status = "pending"
+
+[models."minimax-m2.7"]
+provider = "minimax"
+tier = "mid"
+capabilities = ["analysis", "code", "chinese", "agent"]
+cost = "c"
+notes = "Opus 1/16价格，97%技能遵循率，自我进化训练"
+status = "pending"

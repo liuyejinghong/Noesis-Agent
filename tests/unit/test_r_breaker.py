@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from noesis_agent.core.enums import OrderType, RuntimeMode, SignalSide
 from noesis_agent.core.models import PositionSnapshot, SignalEvent, StrategyRuntimeConfig
@@ -171,6 +172,36 @@ def test_no_factor_filters_preserves_existing_breakout_behavior() -> None:
     signals = strategy.on_bar(make_choppy_breakout_frame(), position=None, account=None)
 
     assert [signal.side for signal in signals] == [SignalSide.LONG]
+
+
+@pytest.mark.parametrize(
+    ("factor_filters", "expected_warmup"),
+    [
+        ({"direction_eff_20": {"min": 0.15}}, 21),
+        ({"ma_slope_50_10": {"min": 0.0}}, 60),
+    ],
+)
+def test_factor_filters_extend_warmup_bars(
+    factor_filters: dict[str, dict[str, float]],
+    expected_warmup: int,
+) -> None:
+    strategy = RBreaker()
+    strategy.configure(make_config(pivot_mode="rolling", rolling_bars=3, factor_filters=factor_filters))
+
+    assert strategy.warmup_bars == expected_warmup
+
+
+def test_configure_raises_for_unknown_factor_filter() -> None:
+    strategy = RBreaker()
+
+    with pytest.raises(KeyError, match="Unknown factor: missing_factor"):
+        strategy.configure(
+            make_config(
+                pivot_mode="rolling",
+                rolling_bars=3,
+                factor_filters={"missing_factor": {"min": 0.1}},
+            )
+        )
 
 
 def test_no_signal_in_range() -> None:

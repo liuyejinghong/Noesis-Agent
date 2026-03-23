@@ -58,9 +58,9 @@ def ma_slope(data: pd.DataFrame, params: FactorParams) -> pd.Series:
 
 def create_default_registry() -> FactorRegistry:
     registry = FactorRegistry()
-    registry.register(FactorDefinition("momentum_20", "20-period Momentum", "momentum", momentum, {"period": 20}))
-    registry.register(FactorDefinition("momentum_5", "5-period Momentum", "momentum", momentum, {"period": 5}))
-    registry.register(FactorDefinition("atr_14", "14-period ATR", "volatility", volatility_atr, {"period": 14}))
+    registry.register(FactorDefinition("momentum_20", "20-period Momentum", "momentum", momentum, {"period": 20}, 21))
+    registry.register(FactorDefinition("momentum_5", "5-period Momentum", "momentum", momentum, {"period": 5}, 6))
+    registry.register(FactorDefinition("atr_14", "14-period ATR", "volatility", volatility_atr, {"period": 14}, 14))
     registry.register(
         FactorDefinition(
             "volatility_pct_14",
@@ -68,6 +68,7 @@ def create_default_registry() -> FactorRegistry:
             "volatility",
             volatility_pct,
             {"period": 14},
+            14,
         )
     )
     registry.register(
@@ -77,6 +78,7 @@ def create_default_registry() -> FactorRegistry:
             "volume",
             volume_zscore,
             {"period": 20},
+            20,
         )
     )
     registry.register(
@@ -86,6 +88,7 @@ def create_default_registry() -> FactorRegistry:
             "momentum",
             direction_efficiency,
             {"period": 20},
+            21,
         )
     )
     registry.register(
@@ -95,6 +98,7 @@ def create_default_registry() -> FactorRegistry:
             "momentum",
             ma_slope,
             {"ma_period": 50, "slope_window": 10},
+            60,
         )
     )
     return registry

@@ -55,3 +55,12 @@ def test_compute_ic_series_returns_series() -> None:
 
     assert isinstance(ic_series, pd.Series)
     assert not ic_series.empty
+
+
+def test_compute_ic_series_returns_empty_series_below_rolling_window() -> None:
+    factor_values = make_series(np.linspace(0.0, 1.0, 15))
+    forward_returns = make_series(np.linspace(0.2, 1.2, 15))
+
+    ic_series = compute_ic_series(factor_values, forward_returns)
+
+    assert ic_series.empty

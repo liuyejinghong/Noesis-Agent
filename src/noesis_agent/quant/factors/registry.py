@@ -16,6 +16,7 @@ class FactorDefinition:
     category: str
     compute_fn: Callable[[pd.DataFrame, FactorParams], pd.Series]
     default_params: FactorParams = field(default_factory=dict)
+    required_history: int = 0
 
 
 class FactorRegistry:

@@ -17,6 +17,8 @@ from noesis_agent.core.models import (
 )
 from noesis_agent.strategy.base import StrategyBase
 
+FilterConditions = dict[str, float]
+
 
 class RBreaker(StrategyBase):
     strategy_id = "r_breaker"
@@ -25,16 +27,20 @@ class RBreaker(StrategyBase):
 
     def configure(self, config: StrategyRuntimeConfig) -> None:
         super().configure(config)
+        from noesis_agent.quant.factors.compute import create_default_registry
+
         params = config.parameters
         self.pivot_mode = str(params.get("pivot_mode", "rolling"))
         self.rolling_bars = int(params.get("rolling_bars", 96))
         self.order_mode = str(params.get("order_mode", "market"))
         self.reverse_enabled = bool(params.get("reverse_enabled", True))
         self.reverse_to_opposite = bool(params.get("reverse_to_opposite", False))
-        self.factor_filters = dict(params.get("factor_filters", {}))
+        self.factor_registry = create_default_registry()
+        self.factor_filters = self._normalize_factor_filters(params.get("factor_filters", {}))
         self.warmup_bars = max(
             self.warmup_bars,
             self.rolling_bars + 1 if self.pivot_mode == "rolling" else 2,
+            self._factor_filter_warmup_bars(),
         )
         self._session_high: float | None = None
         self._session_low: float | None = None
@@ -122,22 +128,47 @@ class RBreaker(StrategyBase):
         return self._compute_daily_levels(data)
 
     def _check_factor_filters(self, data: pd.DataFrame) -> bool:
-        from noesis_agent.quant.factors.compute import create_default_registry
-
-        registry = create_default_registry()
         for factor_id, conditions in self.factor_filters.items():
-            try:
-                values = registry.compute(factor_id, data)
-                current = values.iloc[-1]
-                if pd.isna(current):
-                    return False
-                if "min" in conditions and current < conditions["min"]:
-                    return False
-                if "max" in conditions and current > conditions["max"]:
-                    return False
-            except Exception:
+            values = self.factor_registry.compute(factor_id, data)
+            current = values.iloc[-1]
+            if pd.isna(current):
+                return False
+            minimum = conditions.get("min")
+            maximum = conditions.get("max")
+            if minimum is not None and current < minimum:
+                return False
+            if maximum is not None and current > maximum:
                 return False
         return True
+
+    def _normalize_factor_filters(self, raw_filters: object) -> dict[str, FilterConditions]:
+        if not isinstance(raw_filters, dict):
+            raise TypeError("factor_filters must be a mapping of factor conditions")
+
+        normalized_filters: dict[str, FilterConditions] = {}
+        for factor_id, raw_conditions in raw_filters.items():
+            if not isinstance(factor_id, str):
+                raise TypeError("factor filter ids must be strings")
+            _ = self.factor_registry.get(factor_id)
+
+            if not isinstance(raw_conditions, dict):
+                raise TypeError(f"factor filter conditions for {factor_id} must be a mapping")
+
+            normalized_conditions: FilterConditions = {}
+            for key, value in raw_conditions.items():
+                if key not in {"min", "max"}:
+                    raise ValueError(f"Unsupported factor filter condition: {key}")
+                if not isinstance(value, int | float):
+                    raise TypeError(f"Factor filter condition {key} for {factor_id} must be numeric")
+                normalized_conditions[key] = float(value)
+
+            normalized_filters[factor_id] = normalized_conditions
+        return normalized_filters
+
+    def _factor_filter_warmup_bars(self) -> int:
+        if not self.factor_filters:
+            return 0
+        return max(self.factor_registry.get(factor_id).required_history for factor_id in self.factor_filters)
 
     def _compute_rolling_levels(self, data: pd.DataFrame) -> dict[str, float] | None:
         if len(data) < self.rolling_bars + 1:

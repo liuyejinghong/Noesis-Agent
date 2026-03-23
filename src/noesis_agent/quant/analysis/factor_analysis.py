@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+IC_WINDOW = 20
+
 
 @dataclass(frozen=True)
 class FactorAnalysisResult:
@@ -18,10 +20,10 @@ class FactorAnalysisResult:
 
 def compute_ic_series(factor_values: pd.Series, forward_returns: pd.Series) -> pd.Series:
     aligned = pd.concat([factor_values, forward_returns], axis=1).dropna()
-    if len(aligned) < 10:
+    if len(aligned) < IC_WINDOW:
         return pd.Series(dtype=float)
     aligned.columns = ["factor", "return"]
-    return aligned["factor"].rolling(20).corr(aligned["return"])
+    return aligned["factor"].rolling(IC_WINDOW).corr(aligned["return"]).dropna()
 
 
 def analyze_factor(
@@ -44,7 +46,7 @@ def analyze_factor(
 
     aligned.columns = ["factor", "fwd_return"]
 
-    ic_series = aligned["factor"].rolling(20).corr(aligned["fwd_return"]).dropna()
+    ic_series = compute_ic_series(aligned["factor"], aligned["fwd_return"])
     ic_mean = float(ic_series.mean()) if len(ic_series) > 0 else 0.0
     ic_std = float(ic_series.std()) if len(ic_series) > 0 else 1.0
     ir = ic_mean / ic_std if ic_std > 0 else 0.0

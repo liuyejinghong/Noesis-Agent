@@ -8,16 +8,14 @@ max_leverage = 3
 max_daily_loss_pct = 0.05
 
 [agent_roles.analyst]
-model = "claude-sonnet-4-6"
+model = "claude-opus-4-6"
 base_url = "https://api.aipaibox.com/v1"
 api_key_env = "AIPAIBOX_CLAUDE_API_KEY"
-system_prompt = ""
 output_format = "structured"
 
 [agent_roles.proposer]
-model = "gpt-5.1"
+model = "gpt-5.2"
 auth_type = "oauth_openai"
-system_prompt = ""
 output_format = "structured"
 
 [agent_roles.validator]

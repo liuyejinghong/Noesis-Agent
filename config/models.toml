@@ -1,0 +1,57 @@
+[providers.claude_relay]
+name = "Claude-aipai"
+type = "relay"
+base_url = "https://api.aipaibox.com/v1"
+api_key_env = "AIPAIBOX_CLAUDE_API_KEY"
+
+[providers.gemini_relay]
+name = "Gemini-aipai"
+type = "relay"
+base_url = "https://api.aipaibox.com/v1"
+api_key_env = "AIPAIBOX_GEMINI_API_KEY"
+
+[providers.gpt_oauth]
+name = "GPT-OAuth"
+type = "oauth_openai"
+
+[models.claude-opus-4-6]
+provider = "claude_relay"
+tier = "high"
+capabilities = ["analysis", "reasoning", "code", "chinese"]
+cost = "$$"
+
+[models.claude-sonnet-4-6]
+provider = "claude_relay"
+tier = "mid"
+capabilities = ["analysis", "reasoning", "code", "chinese"]
+cost = "$"
+
+[models.gemini-3.1-pro-high]
+provider = "gemini_relay"
+tier = "mid"
+capabilities = ["analysis", "reasoning"]
+cost = "$"
+
+[models.gemini-3-flash]
+provider = "gemini_relay"
+tier = "low"
+capabilities = ["formatting", "summarization"]
+cost = "c"
+
+[models.gpt-5.2]
+provider = "gpt_oauth"
+tier = "high"
+capabilities = ["reasoning", "code", "analysis"]
+cost = "free"
+
+[models.gpt-5.1]
+provider = "gpt_oauth"
+tier = "mid"
+capabilities = ["reasoning", "code", "analysis"]
+cost = "free"
+
+[models.gpt-5]
+provider = "gpt_oauth"
+tier = "mid"
+capabilities = ["reasoning", "code"]
+cost = "free"

@@ -41,10 +41,14 @@ class BrokerSimulator:
         initial_cash: float = 10_000.0,
         fee_rate: float = 0.0004,
         slippage_bps: float = 2.0,
+        maker_fee_rate: float | None = None,
+        taker_fee_rate: float | None = None,
     ) -> None:
         self.initial_cash = initial_cash
         self.fee_rate = fee_rate
         self.slippage_bps = slippage_bps
+        self.maker_fee_rate = maker_fee_rate if maker_fee_rate is not None else fee_rate
+        self.taker_fee_rate = taker_fee_rate if taker_fee_rate is not None else fee_rate
         self.state = BrokerState(cash=initial_cash, equity=initial_cash)
 
     def account_snapshot(self) -> AccountSnapshot:
@@ -67,7 +71,8 @@ class BrokerSimulator:
             _ = self.mark_to_market(bar["close"])
             return None
 
-        fee = execution_price * intent.quantity * self.fee_rate
+        fee_rate = self.maker_fee_rate if intent.order_type == OrderType.LIMIT else self.taker_fee_rate
+        fee = execution_price * intent.quantity * fee_rate
         realized_pnl = self._apply_fill(intent, execution_price)
         self.state.realized_pnl += realized_pnl
         self.state.cash += realized_pnl - fee
@@ -105,7 +110,7 @@ class BrokerSimulator:
             return None
 
         quantity = position.quantity
-        fee = execution_price * quantity * self.fee_rate
+        fee = execution_price * quantity * self.taker_fee_rate
         if position.entry_price is None:
             realized_pnl = 0.0
         elif position.side == SignalSide.LONG:

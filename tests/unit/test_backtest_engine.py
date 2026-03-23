@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from noesis_agent.backtest.broker import BrokerSimulator
 from noesis_agent.backtest.engine import BacktestEngine
@@ -362,6 +363,45 @@ def test_backtest_engine_respects_cooldown_bars_before_reentry() -> None:
 
     assert [fill.side for fill in result.fills] == [SignalSide.LONG, SignalSide.FLAT, SignalSide.LONG]
     assert result.fills[2].metadata["entry_bar_index"] == 9
+
+
+def test_broker_maker_taker_fees() -> None:
+    broker = BrokerSimulator(initial_cash=10_000.0, maker_fee_rate=0.0, taker_fee_rate=0.0005)
+    bar = {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0}
+
+    limit_fill = broker.execute_order(
+        OrderIntent(
+            strategy_id="test",
+            symbol="BTCUSDT",
+            side=SignalSide.LONG,
+            order_type=OrderType.LIMIT,
+            quantity=1.0,
+            limit_price=100.0,
+        ),
+        bar,
+    )
+    market_fill = broker.execute_order(
+        OrderIntent(
+            strategy_id="test",
+            symbol="BTCUSDT",
+            side=SignalSide.FLAT,
+            order_type=OrderType.MARKET,
+            quantity=1.0,
+        ),
+        bar,
+    )
+
+    assert limit_fill is not None
+    assert limit_fill.fee == 0.0
+    assert market_fill is not None
+    assert market_fill.fee == pytest.approx(market_fill.executed_price * 0.0005)
+
+
+def test_broker_backward_compat() -> None:
+    broker = BrokerSimulator(fee_rate=0.001)
+
+    assert broker.maker_fee_rate == 0.001
+    assert broker.taker_fee_rate == 0.001
 
 
 def test_calculate_summary_reports_trade_count_and_win_rate() -> None:

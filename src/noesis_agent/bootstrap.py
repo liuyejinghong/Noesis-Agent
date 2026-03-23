@@ -9,11 +9,14 @@ from noesis_agent.agent.proposal_manager import ProposalManager
 from noesis_agent.agent.skills.registry import SkillRegistry
 from noesis_agent.core.config import NoesisSettings
 from noesis_agent.core.models import AppContext
+from noesis_agent.logging.alerts import AlertManager, ConsoleAlertChannel, LogAlertChannel
+from noesis_agent.logging.logger import setup_logging
 
 
 class AppBootstrap:
     def __init__(self, root_dir: Path | None = None, config_path: Path | None = None) -> None:
         self.root_dir = root_dir or Path.cwd()
+        setup_logging(log_dir=self.root_dir / "logs")
 
         if config_path is None:
             candidate = self.root_dir / "config" / "config.toml"
@@ -40,6 +43,9 @@ class AppBootstrap:
         self.router = ModelRouter(self.settings.agent_roles)
         self.skill_registry = SkillRegistry()
         self.proposal_manager = ProposalManager(self.memory)
+        self.alert_manager = AlertManager()
+        self.alert_manager.register_channel(LogAlertChannel())
+        self.alert_manager.register_channel(ConsoleAlertChannel())
         configured_prompts_dir = self.root_dir / "config" / "prompts"
         prompts_dir = configured_prompts_dir if configured_prompts_dir.exists() else None
         self.orchestrator = AgentOrchestrator(

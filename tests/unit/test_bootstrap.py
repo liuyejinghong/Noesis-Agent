@@ -76,3 +76,10 @@ def test_app_bootstrap_sets_prompts_dir_when_prompt_files_exist(tmp_path: Path) 
     bootstrap = AppBootstrap(root_dir=tmp_path)
 
     assert bootstrap.orchestrator.prompts_dir == tmp_path / "config" / "prompts"
+
+
+def test_app_bootstrap_initializes_alert_manager_and_logs_dir(tmp_path: Path) -> None:
+    bootstrap = AppBootstrap(root_dir=tmp_path)
+
+    assert bootstrap.alert_manager.channel_count == 2
+    assert (tmp_path / "logs").exists()

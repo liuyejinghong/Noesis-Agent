@@ -3,16 +3,16 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from noesis_agent.quant.factors.registry import FactorDefinition, FactorRegistry
+from noesis_agent.quant.factors.registry import FactorDefinition, FactorParams, FactorRegistry
 
 
-def momentum(data: pd.DataFrame, params: dict) -> pd.Series:
-    period = params.get("period", 20)
+def momentum(data: pd.DataFrame, params: FactorParams) -> pd.Series:
+    period = int(params.get("period", 20))
     return data["close"].pct_change(period)
 
 
-def volatility_atr(data: pd.DataFrame, params: dict) -> pd.Series:
-    period = params.get("period", 14)
+def volatility_atr(data: pd.DataFrame, params: FactorParams) -> pd.Series:
+    period = int(params.get("period", 14))
     high = data["high"]
     low = data["low"]
     close = data["close"]
@@ -28,30 +28,30 @@ def volatility_atr(data: pd.DataFrame, params: dict) -> pd.Series:
     return true_range.rolling(period).mean()
 
 
-def volatility_pct(data: pd.DataFrame, params: dict) -> pd.Series:
-    period = params.get("period", 14)
+def volatility_pct(data: pd.DataFrame, params: FactorParams) -> pd.Series:
+    period = int(params.get("period", 14))
     atr = volatility_atr(data, {"period": period})
     return atr / data["close"]
 
 
-def volume_zscore(data: pd.DataFrame, params: dict) -> pd.Series:
-    period = params.get("period", 20)
+def volume_zscore(data: pd.DataFrame, params: FactorParams) -> pd.Series:
+    period = int(params.get("period", 20))
     volume = data["volume"]
     mean = volume.rolling(period).mean()
     std = volume.rolling(period).std()
     return (volume - mean) / std.replace(0, np.nan)
 
 
-def direction_efficiency(data: pd.DataFrame, params: dict) -> pd.Series:
-    period = params.get("period", 20)
+def direction_efficiency(data: pd.DataFrame, params: FactorParams) -> pd.Series:
+    period = int(params.get("period", 20))
     net_move = (data["close"] - data["close"].shift(period)).abs()
     bar_moves = data["close"].diff().abs().rolling(period).sum()
     return net_move / bar_moves.replace(0, np.nan)
 
 
-def ma_slope(data: pd.DataFrame, params: dict) -> pd.Series:
-    ma_period = params.get("ma_period", 50)
-    slope_window = params.get("slope_window", 10)
+def ma_slope(data: pd.DataFrame, params: FactorParams) -> pd.Series:
+    ma_period = int(params.get("ma_period", 50))
+    slope_window = int(params.get("slope_window", 10))
     moving_average = data["close"].rolling(ma_period).mean()
     return (moving_average - moving_average.shift(slope_window)) / moving_average.shift(slope_window) / slope_window
 

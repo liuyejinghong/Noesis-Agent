@@ -5,14 +5,17 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
+FactorParamValue = int | float | str | bool
+FactorParams = dict[str, FactorParamValue]
+
 
 @dataclass(frozen=True)
 class FactorDefinition:
     factor_id: str
     name: str
     category: str
-    compute_fn: Callable[[pd.DataFrame, dict], pd.Series]
-    default_params: dict = field(default_factory=dict)
+    compute_fn: Callable[[pd.DataFrame, FactorParams], pd.Series]
+    default_params: FactorParams = field(default_factory=dict)
 
 
 class FactorRegistry:
@@ -37,8 +40,8 @@ class FactorRegistry:
         self,
         factor_id: str,
         data: pd.DataFrame,
-        params: dict | None = None,
+        params: FactorParams | None = None,
     ) -> pd.Series:
         definition = self.get(factor_id)
-        merged_params = {**definition.default_params, **(params or {})}
+        merged_params: FactorParams = {**definition.default_params, **(params or {})}
         return definition.compute_fn(data, merged_params)

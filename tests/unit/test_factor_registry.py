@@ -74,7 +74,7 @@ def test_unknown_factor_raises_key_error() -> None:
     registry = FactorRegistry()
 
     with pytest.raises(KeyError, match="Unknown factor: missing"):
-        registry.get("missing")
+        _ = registry.get("missing")
 
 
 def test_list_factors_filters_by_category() -> None:

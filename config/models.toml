@@ -71,4 +71,3 @@ provider = "gpt_oauth"
 tier = "mid"
 capabilities = ["reasoning", "code"]
 cost = "plus_quota"
-cost = "free"
